@@ -7,14 +7,8 @@ namespace Kode\Cache\Exception;
 /**
  * 异常基类
  *
- * 如果安装了 kode/exception 则使用其作为基类，否则使用内置基类
+ * 继承自 Kode\Exception\Exception，统一异常处理
  */
-if (class_exists('\Kode\Exception\Exception')) {
-    abstract class BaseException extends \Kode\Exception\Exception
-    {
-    }
-} else {
-    abstract class BaseException extends \RuntimeException implements ExceptionInterface
-    {
-    }
+abstract class BaseException extends \Kode\Exception\Exception implements ExceptionInterface
+{
 }
