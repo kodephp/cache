@@ -1,7 +1,7 @@
 {
     "name": "kode/cache",
     "description": "Kode Cache - 高性能缓存组件，支持文件、内存、Redis、Memcached等多种驱动，用于单机和分布式环境",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "keywords": [
         "cache",
         "kode",
@@ -24,7 +24,7 @@
     ],
     "require": {
         "php": ">=8.1",
-        "kode/exception": "^1.0",
+        "kode/exception": "^2.0",
         "kode/limiting": "^1.0"
     },
     "require-dev": {

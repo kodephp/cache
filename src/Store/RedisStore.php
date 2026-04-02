@@ -387,4 +387,24 @@ class RedisStore implements StoreInterface
         $this->checkConnection();
         return $this->redis;
     }
+
+    public function getHost(): ?string
+    {
+        return $this->host;
+    }
+
+    public function getPort(): ?int
+    {
+        return $this->port;
+    }
+
+    public function getPassword(): ?string
+    {
+        return $this->password;
+    }
+
+    public function getDatabase(): int
+    {
+        return $this->database;
+    }
 }

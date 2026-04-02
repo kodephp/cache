@@ -38,7 +38,7 @@ class SerializerFactory
         return match ($type) {
             'php' => true,
             'json' => true,
-            'igbinary' => extension_loaded('igbinary'),
+            'igbinary' => IgBinarySerializer::isAvailable(),
             default => false,
         };
     }
