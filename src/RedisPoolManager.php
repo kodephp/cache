@@ -41,8 +41,8 @@ class RedisPoolManager
     /** @var int 等待超时（秒） */
     protected int $waitTimeout;
 
-    /** @var object|null 上下文管理器 */
-    protected static ?object $context = null;
+    /** @var string|null 上下文管理器类名 */
+    protected static ?string $contextClass = null;
 
     /**
      * 构造函数
@@ -241,7 +241,7 @@ class RedisPoolManager
             throw CacheException::connectionFailed(
                 '无法创建 Redis 连接: ' . $e->getMessage(),
                 [],
-                $e
+                $e instanceof \Throwable ? $e : null
             );
         }
 
@@ -324,27 +324,27 @@ class RedisPoolManager
      */
     protected static function getContextClass(): ?string
     {
-        if (self::$context !== null) {
-            return self::$context instanceof \Stringable ? (string) self::$context : get_class(self::$context);
+        if (self::$contextClass !== null) {
+            return self::$contextClass;
         }
 
         if (!class_exists(\Kode\Context::class)) {
             return null;
         }
 
-        self::$context = \Kode\Context::class;
+        self::$contextClass = \Kode\Context::class;
 
-        return \Kode\Context::class;
+        return self::$contextClass;
     }
 
     /**
-     * 设置上下文管理器
+     * 设置上下文管理器类名
      *
-     * @param object|string $context 上下文管理器实例或类名
+     * @param string $contextClass 上下文管理器类名
      */
-    public static function setContext(object|string $context): void
+    public static function setContextClass(string $contextClass): void
     {
-        self::$context = is_object($context) ? $context : null;
+        self::$contextClass = $contextClass;
     }
 
     /**
@@ -352,7 +352,7 @@ class RedisPoolManager
      */
     public static function resetContext(): void
     {
-        self::$context = null;
+        self::$contextClass = null;
     }
 
     /**

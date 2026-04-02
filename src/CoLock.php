@@ -11,8 +11,8 @@ namespace Kode\Cache;
  */
 class CoLock
 {
-    /** @var object|null 上下文管理器实例 */
-    protected static ?object $context = null;
+    /** @var string|null 上下文管理器类名 */
+    protected static ?string $contextClass = null;
 
     /** @var string 锁名称 */
     protected string $name;
@@ -79,13 +79,13 @@ class CoLock
      */
     protected function tryAcquire(): bool
     {
-        $context = self::getContext();
+        $contextClass = self::getContextClass();
 
-        if ($context === null) {
+        if ($contextClass === null) {
             return $this->acquireWithoutContext();
         }
 
-        $locks = $this->contextGet($context, $this->storageKey, []);
+        $locks = $contextClass::get($this->storageKey, []);
 
         foreach ($locks as $token => $expireAt) {
             if ($expireAt > 0 && $expireAt < time()) {
@@ -98,7 +98,7 @@ class CoLock
         }
 
         $locks[$this->token] = $this->timeout > 0 ? time() + $this->timeout : 0;
-        $this->contextSet($context, $this->storageKey, $locks);
+        $contextClass::set($this->storageKey, $locks);
 
         return true;
     }
@@ -145,12 +145,12 @@ class CoLock
         }
 
         $this->owner = false;
-        $context = self::getContext();
+        $contextClass = self::getContextClass();
 
-        if ($context !== null) {
-            $locks = $this->contextGet($context, $this->storageKey, []);
+        if ($contextClass !== null) {
+            $locks = $contextClass::get($this->storageKey, []);
             unset($locks[$this->token]);
-            $this->contextSet($context, $this->storageKey, $locks);
+            $contextClass::set($this->storageKey, $locks);
         }
 
         return true;
@@ -167,10 +167,10 @@ class CoLock
             return false;
         }
 
-        $context = self::getContext();
+        $contextClass = self::getContextClass();
 
-        if ($context !== null) {
-            $locks = $this->contextGet($context, $this->storageKey, []);
+        if ($contextClass !== null) {
+            $locks = $contextClass::get($this->storageKey, []);
             return isset($locks[$this->token]);
         }
 
@@ -238,13 +238,13 @@ class CoLock
         }
 
         $this->timeout = $seconds;
-        $context = self::getContext();
+        $contextClass = self::getContextClass();
 
-        if ($context !== null) {
-            $locks = $this->contextGet($context, $this->storageKey, []);
+        if ($contextClass !== null) {
+            $locks = $contextClass::get($this->storageKey, []);
             if (isset($locks[$this->token])) {
                 $locks[$this->token] = time() + $seconds;
-                $this->contextSet($context, $this->storageKey, $locks);
+                $contextClass::set($this->storageKey, $locks);
             }
         }
 
@@ -271,77 +271,33 @@ class CoLock
     }
 
     /**
-     * 获取上下文管理器实例
+     * 获取上下文管理器类名
      *
-     * @return object|null
+     * @return string|null
      */
-    protected static function getContext(): ?object
+    protected static function getContextClass(): ?string
     {
-        if (self::$context !== null) {
-            return self::$context;
+        if (self::$contextClass !== null) {
+            return self::$contextClass;
         }
 
         if (!class_exists(\Kode\Context::class)) {
             return null;
         }
 
-        self::$context = \Kode\Context::class;
+        self::$contextClass = \Kode\Context::class;
 
-        return self::$context;
+        return self::$contextClass;
     }
 
     /**
-     * 从上下文获取数据
+     * 设置上下文管理器类名
      *
-     * @param object $context 上下文实例
-     * @param string $key 键名
-     * @param mixed $default 默认值
-     * @return mixed
+     * @param string $contextClass 上下文管理器类名
      */
-    protected function contextGet(object $context, string $key, mixed $default = null): mixed
+    public static function setContextClass(string $contextClass): void
     {
-        if ($context instanceof \Kode\Context) {
-            return \Kode\Context::get($key, $default);
-        }
-
-        return $default;
-    }
-
-    /**
-     * 向上下文设置数据
-     *
-     * @param object $context 上下文实例
-     * @param string $key 键名
-     * @param mixed $value 值
-     */
-    protected function contextSet(object $context, string $key, mixed $value): void
-    {
-        if ($context instanceof \Kode\Context) {
-            \Kode\Context::set($key, $value);
-        }
-    }
-
-    /**
-     * 从上下文删除数据
-     *
-     * @param object $context 上下文实例
-     * @param string $key 键名
-     */
-    protected function contextDelete(object $context, string $key): void
-    {
-        if ($context instanceof \Kode\Context) {
-            \Kode\Context::delete($key);
-        }
-    }
-
-    /**
-     * 设置上下文管理器
-     *
-     * @param object|string $context 上下文管理器实例或类名
-     */
-    public static function setContext(object|string $context): void
-    {
-        self::$context = is_object($context) ? $context : null;
+        self::$contextClass = $contextClass;
     }
 
     /**
@@ -349,7 +305,7 @@ class CoLock
      */
     public static function resetContext(): void
     {
-        self::$context = null;
+        self::$contextClass = null;
     }
 
     /**
