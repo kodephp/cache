@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\Cache;
 
+use Kode\Context\Context;
+
 /**
  * 协程锁
  *
@@ -76,11 +78,11 @@ class CoLock
      */
     protected function tryAcquire(): bool
     {
-        if (!class_exists(\Kode\Context::class)) {
+        if (!class_exists(Context::class)) {
             return $this->acquireWithoutContext();
         }
 
-        $locks = \Kode\Context::get($this->storageKey, []);
+        $locks = Context::get($this->storageKey, []);
 
         foreach ($locks as $token => $expireAt) {
             if ($expireAt > 0 && $expireAt < time()) {
@@ -93,7 +95,7 @@ class CoLock
         }
 
         $locks[$this->token] = $this->timeout > 0 ? time() + $this->timeout : 0;
-        \Kode\Context::set($this->storageKey, $locks);
+        Context::set($this->storageKey, $locks);
 
         return true;
     }
@@ -141,10 +143,10 @@ class CoLock
 
         $this->owner = false;
 
-        if (class_exists(\Kode\Context::class)) {
-            $locks = \Kode\Context::get($this->storageKey, []);
+        if (class_exists(Context::class)) {
+            $locks = Context::get($this->storageKey, []);
             unset($locks[$this->token]);
-            \Kode\Context::set($this->storageKey, $locks);
+            Context::set($this->storageKey, $locks);
         }
 
         return true;
@@ -161,8 +163,8 @@ class CoLock
             return false;
         }
 
-        if (class_exists(\Kode\Context::class)) {
-            $locks = \Kode\Context::get($this->storageKey, []);
+        if (class_exists(Context::class)) {
+            $locks = Context::get($this->storageKey, []);
             return isset($locks[$this->token]);
         }
 
@@ -231,11 +233,11 @@ class CoLock
 
         $this->timeout = $seconds;
 
-        if (class_exists(\Kode\Context::class)) {
-            $locks = \Kode\Context::get($this->storageKey, []);
+        if (class_exists(Context::class)) {
+            $locks = Context::get($this->storageKey, []);
             if (isset($locks[$this->token])) {
                 $locks[$this->token] = time() + $seconds;
-                \Kode\Context::set($this->storageKey, $locks);
+                Context::set($this->storageKey, $locks);
             }
         }
 
