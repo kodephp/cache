@@ -15,7 +15,6 @@
 - [分布式锁](#分布式锁)
 - [原子计数器](#原子计数器)
 - [限流器](#限流器)
-- [Fiber 支持](#fiber-支持)
 - [配置管理](#配置管理)
 - [异常处理](#异常处理)
 - [框架集成](#框架集成)
@@ -32,7 +31,6 @@
 - **PSR-16 规范**: 遵循 PHP 标准缓存接口
 - **序列化支持**: PHP serialize、JSON、igbinary
 - **分布式支持**: Redis 分布式锁、原子计数器、限流器
-- **Fiber 支持**: 在 Fiber 中安全使用缓存
 - **缓存标签**: 分组管理和批量操作
 - **链式调用**: 简洁的 API 设计
 - **PHP 8.1+**: 利用最新 PHP 特性和性能优化
@@ -135,29 +133,6 @@ Cache::forever('user_avatar', $avatarUrl);
 Cache::flush();
 ```
 
-### 使用辅助函数
-
-```php
-// 设置缓存
-cache_set('key', 'value', 3600);
-
-// 获取缓存
-$value = cache_get('key', 'default');
-
-// 判断存在
-if (cache_has('key')) {
-    // ...
-}
-
-// 删除缓存
-cache_delete('key');
-
-// 自动获取/设置
-$value = cache_remember('key', function() {
-    return expensive_operation();
-}, 3600);
-```
-
 ---
 
 ## 驱动配置
@@ -210,10 +185,10 @@ $cache = new CacheManager([
     'port' => 6379,
     'password' => null,               // Redis 密码
     'database' => 0,                  // 数据库编号
-    'prefix' => 'kode:',             // 缓存前缀
-    'expire' => 3600,                // 默认过期时间
-    'timeout' => 0.0,                // 连接超时
-    'persistent' => null,            // 持久化连接 ID
+    'prefix' => 'kode:',              // 缓存前缀
+    'expire' => 3600,                 // 默认过期时间
+    'timeout' => 0.0,                 // 连接超时
+    'persistent' => null,             // 持久化连接 ID
 ]);
 ```
 
@@ -431,8 +406,8 @@ $array = $item->toArray();
 
 ```php
 use Kode\Cache\Serializer\PhpSerializer;       // PHP 原生序列化 (默认)
-use Kode\Cache\Serializer\JsonSerializer;       // JSON 序列化
-use Kode\Cache\Serializer\IgBinarySerializer;   // igbinary 扩展 (最高效)
+use Kode\Cache\Serializer\JsonSerializer;     // JSON 序列化
+use Kode\Cache\Serializer\IgBinarySerializer; // igbinary 扩展 (最高效)
 
 // 检查可用性
 if (\Kode\Cache\Serializer\SerializerFactory::isAvailable('igbinary')) {
@@ -538,8 +513,8 @@ $counter = new AtomicCounter($redisStore, 'page_views');
 // 自增/自减
 $counter->increment();        // +1
 $counter->increment(10);      // +10
-$counter->decrement();       // -1
-$counter->decrement(5);       // -5
+$counter->decrement();        // -1
+$counter->decrement(5);      // -5
 
 // 获取当前值
 $views = $counter->get();
@@ -552,7 +527,7 @@ $counter->reset();
 
 ## 限流器
 
-基于 Redis 的请求限流，适用于 API 限流等场景。
+基于 Redis 的请求限流，使用 `kode/limiting` 组件实现令牌桶算法。
 
 ```php
 use Kode\Cache\RateLimiter;
@@ -561,47 +536,22 @@ $redisStore = new \Kode\Cache\Store\RedisStore('127.0.0.1', 6379);
 $limiter = new RateLimiter($redisStore, 'api_limit', 100, 60); // 60 秒内最多 100 次
 
 // 检查是否超限
-if ($limiter->tooManyAttempts()) {
-    $retryAfter = $limiter->availableIn();
+if ($limiter->tooManyAttempts('user:123')) {
+    $retryAfter = $limiter->retryAfter('user:123');
     throw new \Exception("请 {$retryAfter} 秒后重试");
 }
 
 // 记录请求
-$limiter->hit();
+$limiter->hit('user:123');
 
 // 获取剩余次数
-$remaining = $limiter->remaining();
+$remaining = $limiter->remaining('user:123');
 
 // 获取已用次数
-$attempts = $limiter->attempts();
+$attempts = $limiter->attempts('user:123');
 
 // 重置
-$limiter->clear();
-```
-
-**限流器可选集成**: 如果安装了 `kode/limiting`，将自动使用其高级功能。
-
----
-
-## Fiber 支持
-
-在 Fiber 中安全使用缓存实例。
-
-```php
-use Kode\Cache\FiberCache;
-
-// 获取实例
-$cache = FiberCache::getInstance('file', ['path' => '/tmp/cache']);
-
-// 使用方式与常规缓存相同
-$cache->set('key', 'value', 3600);
-$value = $cache->get('key');
-
-// 获取底层 Store
-$store = $cache->getStore();
-
-// 清除所有 Fiber 实例
-FiberCache::clearInstances();
+$limiter->clear('user:123');
 ```
 
 ---
@@ -643,6 +593,8 @@ Config::load($configArray);
 ---
 
 ## 异常处理
+
+使用 `kode/exception` 组件，遵循统一的异常规范。
 
 ```php
 use Kode\Cache\Exception\CacheException;
@@ -779,39 +731,34 @@ kode/cache/
 │   ├── Contract/               # 接口定义
 │   │   ├── StoreInterface.php
 │   │   ├── TagInterface.php
-│   │   ├── LockInterface.php
-│   │   └── LimiterInterface.php
-│   ├── Exception/             # 异常类
+│   │   └── LockInterface.php
+│   ├── Exception/              # 异常类
 │   │   ├── ExceptionInterface.php
 │   │   ├── BaseException.php
 │   │   ├── CacheException.php
 │   │   ├── InvalidArgumentException.php
 │   │   └── RuntimeException.php
-│   ├── Serializer/            # 序列化器
+│   ├── Serializer/             # 序列化器
 │   │   ├── SerializerInterface.php
 │   │   ├── SerializerFactory.php
 │   │   ├── PhpSerializer.php
 │   │   ├── JsonSerializer.php
 │   │   └── IgBinarySerializer.php
-│   ├── Store/                 # 驱动实现
+│   ├── Store/                   # 驱动实现
 │   │   ├── FileStore.php
 │   │   ├── MemoryStore.php
 │   │   ├── RedisStore.php
 │   │   └── MemcachedStore.php
-│   ├── CacheManager.php        # 缓存管理器
-│   ├── CacheItem.php           # 缓存项
-│   ├── Facade.php              # 门面类
-│   ├── Tag.php                 # 标签支持
-│   ├── Lock.php                # 本地锁
+│   ├── CacheManager.php         # 缓存管理器
+│   ├── CacheItem.php            # 缓存项
+│   ├── Facade.php               # 门面类
+│   ├── Tag.php                  # 标签支持
+│   ├── Lock.php                 # 本地锁
 │   ├── DistributedLock.php      # 分布式锁
 │   ├── AtomicCounter.php        # 原子计数器
-│   ├── RateLimiter.php         # 限流器
-│   ├── FiberCache.php           # Fiber 支持
-│   ├── Config.php              # 配置管理
-│   └── helpers.php             # 辅助函数
-├── tests/                       # 单元测试
-├── .kode/
-│   └── rules.md                # 项目规则
+│   ├── RateLimiter.php          # 限流器
+│   └── Config.php               # 配置管理
+├── tests/                      # 单元测试
 ├── composer.json
 ├── phpunit.xml
 ├── .gitignore
