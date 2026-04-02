@@ -14,8 +14,8 @@ use Kode\Cache\Exception\CacheException;
  */
 class RedisStore implements StoreInterface
 {
-    /** @var \Redis|\RedisArray|\RedisCluster|object|null Redis 连接实例 */
-    protected \Redis|\RedisArray|\RedisCluster|object|null $redis = null;
+    /** @var \Redis|\RedisArray|\RedisCluster|null Redis 连接实例 */
+    protected \Redis|\RedisArray|\RedisCluster|null $redis = null;
 
     /** @var string 缓存键名前缀 */
     protected string $prefix;
@@ -380,9 +380,9 @@ class RedisStore implements StoreInterface
     /**
      * 获取 Redis 连接实例
      *
-     * @return \Redis|\RedisArray|\RedisCluster|object
+     * @return \Redis|\RedisArray|\RedisCluster
      */
-    public function getRedis(): \Redis|\RedisArray|\RedisCluster|object
+    public function getRedis(): \Redis|\RedisArray|\RedisCluster
     {
         $this->checkConnection();
         return $this->redis;

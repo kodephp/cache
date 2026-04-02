@@ -1,6 +1,6 @@
 # Kode Cache
 
-高性能 PHP 缓存组件，支持文件、内存、Redis、Memcached 等多种驱动，可独立使用、框架集成使用或结合 Kode 其他包使用。支持分布式锁、原子计数器、限流器等高级功能。
+高性能 PHP 缓存组件，支持文件、内存、Redis、Memcached、APCu、SQLite 等多种驱动，可独立使用、框架集成使用或结合 Kode 其他包使用。支持分布式锁、原子计数器、限流器等高级功能。
 
 ## 目录
 
@@ -8,6 +8,7 @@
 - [安装](#安装)
 - [快速开始](#快速开始)
 - [驱动配置](#驱动配置)
+- [自定义驱动扩展](#自定义驱动扩展)
 - [缓存操作](#缓存操作)
 - [缓存标签](#缓存标签)
 - [缓存项](#缓存项)
@@ -27,13 +28,14 @@
 
 ## 特性
 
-- **多驱动支持**: File、Memory、Redis、Memcached
+- **多驱动支持**: File、Memory、Redis、Memcached、APCu、SQLite
 - **PSR-16 规范**: 遵循 PHP 标准缓存接口
 - **序列化支持**: PHP serialize、JSON、igbinary
 - **分布式支持**: Redis 分布式锁、原子计数器、限流器
 - **缓存标签**: 分组管理和批量操作
 - **链式调用**: 简洁的 API 设计
 - **PHP 8.1+**: 利用最新 PHP 特性和性能优化
+- **自定义扩展**: 支持通过 `extend()` 方法注册自定义驱动
 - **优雅降级**: 可选依赖 `kode/exception`、`kode/limiting`
 
 ---
@@ -43,7 +45,7 @@
 ### 环境要求
 
 - PHP >= 8.1
-- 可选扩展: ext-redis, ext-memcached, ext-igbinary
+- 可选扩展: ext-redis, ext-memcached, ext-apcu, ext-igbinary
 
 ### 安装命令
 
@@ -62,6 +64,9 @@ pecl install redis
 
 # 如需使用 Memcached 驱动
 pecl install memcached
+
+# 如需使用 APCu 驱动
+pecl install apcu
 
 # 如需更高效的序列化
 pecl install igbinary
@@ -187,7 +192,7 @@ $cache = new CacheManager([
     'database' => 0,                  // 数据库编号
     'prefix' => 'kode:',              // 缓存前缀
     'expire' => 3600,                 // 默认过期时间
-    'timeout' => 0.0,                 // 连接超时
+    'timeout' => 0.0,                // 连接超时
     'persistent' => null,             // 持久化连接 ID
 ]);
 ```
@@ -220,6 +225,43 @@ $cache = new CacheManager([
 - 比 Redis 更轻量
 - 需要 ext-memcached
 
+### APCu 驱动
+
+适用于单机环境，无需额外进程，比 Redis 更轻量。
+
+```php
+$cache = new CacheManager([
+    'default' => 'apcu',
+    'prefix' => 'kode:',
+    'expire' => 3600,
+]);
+```
+
+**特点**:
+- 性能极高
+- 无需额外进程
+- 仅支持单机
+- 需要 ext-apcu
+
+### SQLite 驱动
+
+适用于文件型持久化缓存，无需配置数据库服务器。
+
+```php
+$cache = new CacheManager([
+    'default' => 'sqlite',
+    'sqlite_path' => '/tmp/cache.sqlite',  // 数据库文件路径
+    'prefix' => 'kode:',
+    'expire' => 3600,
+]);
+```
+
+**特点**:
+- 无需数据库服务器
+- 支持持久化
+- 性能中等
+- 需要 ext-pdo_sqlite
+
 ### 多驱动配置
 
 ```php
@@ -244,6 +286,13 @@ $cache = new CacheManager([
             'host' => '127.0.0.1',
             'port' => 11211,
         ],
+        'apcu' => [
+            'type' => 'apcu',
+        ],
+        'sqlite' => [
+            'type' => 'sqlite',
+            'path' => '/tmp/cache.sqlite',
+        ],
     ],
 ]);
 
@@ -251,10 +300,71 @@ $cache = new CacheManager([
 $cache->store('file')->set('key', 'value');
 $cache->store('redis')->set('key', 'value');
 $cache->store('memory')->set('key', 'value');
+$cache->store('apcu')->set('key', 'value');
 
 // 默认驱动
 $cache->get('key');
 ```
+
+---
+
+## 自定义驱动扩展
+
+可以通过 `CacheManager::extend()` 方法注册自定义驱动。
+
+### 创建自定义驱动
+
+```php
+use Kode\Cache\Contract\StoreInterface;
+use Kode\Cache\Store\AbstractStore;
+
+class MyCustomStore extends AbstractStore
+{
+    protected function getItem(string $key): ?array
+    {
+        // 实现获取逻辑
+        $value = some_storage_get($key);
+        return $value !== null ? ['value' => $value, 'expire' => 0] : null;
+    }
+
+    protected function setItem(string $key, mixed $value, int $expire): bool
+    {
+        // 实现设置逻辑
+        return some_storage_set($key, $value, $expire);
+    }
+
+    protected function deleteItem(string $key): bool
+    {
+        // 实现删除逻辑
+        return some_storage_delete($key);
+    }
+
+    protected function clearAll(): bool
+    {
+        // 实现清空逻辑
+        return some_storage_clear();
+    }
+}
+```
+
+### 注册自定义驱动
+
+```php
+use Kode\Cache\CacheManager;
+
+// 注册自定义驱动
+CacheManager::extend('custom', MyCustomStore::class);
+
+// 使用自定义驱动
+$cache = new CacheManager([
+    'default' => 'custom',
+]);
+
+$cache->set('key', 'value');
+$cache->get('key');
+```
+
+**注意**: 自定义驱动类必须实现 `StoreInterface` 接口，建议继承 `AbstractStore` 抽象类。
 
 ---
 
@@ -304,9 +414,9 @@ $cache->deleteMultiple(['key1', 'key2']);
 ```php
 $cache->set('counter', 0);
 $cache->increment('counter');      // +1
-$cache->increment('counter', 5);  // +5
+$cache->increment('counter', 5); // +5
 $cache->decrement('counter');     // -1
-$cache->decrement('counter', 3);   // -3
+$cache->decrement('counter', 3);  // -3
 ```
 
 ### 自动获取/设置
@@ -512,8 +622,8 @@ $counter = new AtomicCounter($redisStore, 'page_views');
 
 // 自增/自减
 $counter->increment();        // +1
-$counter->increment(10);      // +10
-$counter->decrement();        // -1
+$counter->increment(10);     // +10
+$counter->decrement();       // -1
 $counter->decrement(5);      // -5
 
 // 获取当前值
@@ -684,6 +794,7 @@ $cache->set('key', 'value', 3600);
 | 方法 | 说明 | 返回值 |
 |------|------|--------|
 | `store($name)` | 获取指定驱动的缓存实例 | StoreInterface |
+| `extend($name, $class)` | 注册自定义驱动 | void |
 | `get($key, $default)` | 获取缓存 | mixed |
 | `set($key, $value, $ttl)` | 设置缓存 | bool |
 | `put($key, $value, $ttl)` | 设置缓存 (显式TTL) | bool |
@@ -721,6 +832,17 @@ $cache->set('key', 'value', 3600);
 | `decrement($key, $step)` | 自减 | int\|false |
 | `forever($key, $value)` | 永久缓存 | bool |
 
+### AbstractStore (抽象基类)
+
+自定义驱动建议继承此类，只需实现 4 个抽象方法：
+
+| 抽象方法 | 说明 |
+|----------|------|
+| `getItem($key)` | 获取存储项 |
+| `setItem($key, $value, $expire)` | 设置存储项 |
+| `deleteItem($key)` | 删除存储项 |
+| `clearAll()` | 清空所有 |
+
 ---
 
 ## 目录结构
@@ -744,21 +866,24 @@ kode/cache/
 │   │   ├── PhpSerializer.php
 │   │   ├── JsonSerializer.php
 │   │   └── IgBinarySerializer.php
-│   ├── Store/                   # 驱动实现
+│   ├── Store/                  # 驱动实现
+│   │   ├── AbstractStore.php   # 抽象基类
 │   │   ├── FileStore.php
 │   │   ├── MemoryStore.php
 │   │   ├── RedisStore.php
-│   │   └── MemcachedStore.php
-│   ├── CacheManager.php         # 缓存管理器
-│   ├── CacheItem.php            # 缓存项
-│   ├── Facade.php               # 门面类
-│   ├── Tag.php                  # 标签支持
-│   ├── Lock.php                 # 本地锁
-│   ├── DistributedLock.php      # 分布式锁
-│   ├── AtomicCounter.php        # 原子计数器
-│   ├── RateLimiter.php          # 限流器
-│   └── Config.php               # 配置管理
-├── tests/                      # 单元测试
+│   │   ├── MemcachedStore.php
+│   │   ├── APCuStore.php
+│   │   └── SQLiteStore.php
+│   ├── CacheManager.php        # 缓存管理器
+│   ├── CacheItem.php           # 缓存项
+│   ├── Facade.php              # 门面类
+│   ├── Tag.php                 # 标签支持
+│   ├── Lock.php                # 本地锁
+│   ├── DistributedLock.php     # 分布式锁
+│   ├── AtomicCounter.php       # 原子计数器
+│   ├── RateLimiter.php        # 限流器
+│   └── Config.php              # 配置管理
+├── tests/                     # 单元测试
 ├── composer.json
 ├── phpunit.xml
 ├── .gitignore
@@ -803,6 +928,8 @@ kode/cache/
 | Memory | 请求内共享、测试 | 最高 | 否 |
 | Redis | 生产环境、分布式 | 高 | 是 |
 | Memcached | 高并发、分布式 | 高 | 是 |
+| APCu | 单机高性能缓存 | 极高 | 否 |
+| SQLite | 轻量持久化、无需数据库 | 中 | 是 |
 
 ### 优化建议
 
@@ -810,3 +937,5 @@ kode/cache/
 2. **内存驱动**: 适用于请求内共享数据，不支持持久化
 3. **Redis 驱动**: 适用于生产环境，推荐使用，支持分布式
 4. **Memcached 驱动**: 适用于高并发分布式缓存，比 Redis 更轻量
+5. **APCu 驱动**: 适用于单机高性能缓存，无需额外进程
+6. **SQLite 驱动**: 适用于轻量持久化，无需配置数据库服务器
