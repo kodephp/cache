@@ -7,41 +7,56 @@ namespace Kode\Cache;
 use Kode\Cache\Contract\StoreInterface;
 use Kode\Cache\Exception\CacheException;
 use Kode\Cache\Exception\InvalidArgumentException;
+use Kode\Cache\Store\APCuStore;
 use Kode\Cache\Store\FileStore;
 use Kode\Cache\Store\MemoryStore;
 use Kode\Cache\Store\MemcachedStore;
 use Kode\Cache\Store\RedisStore;
+use Kode\Cache\Store\SQLiteStore;
 
 /**
  * 缓存管理器
  *
  * 负责管理多种缓存驱动的创建和使用，提供统一的缓存操作接口
+ * 支持自定义驱动扩展
  */
 class CacheManager
 {
-    /**
-     * 已创建的缓存存储实例
-     */
+    /** @var array 已创建的缓存存储实例 */
     protected array $stores = [];
 
-    /**
-     * 缓存配置
-     */
+    /** @var array 缓存配置 */
     protected array $config = [];
 
-    /**
-     * 单例实例
-     */
-    protected static ?CacheManager $instance = null;
+    /** @var array 已注册的自定义驱动 */
+    protected static array $customDrivers = [];
+
+    /** @var array 内置驱动映射 */
+    protected static array $driverAliases = [
+        'array' => 'memory',
+    ];
+
+    /** @var self|null 单例实例 */
+    protected static ?self $instance = null;
 
     /**
-     * 构造函数
+     * 注册自定义驱动
      *
-     * @param array $config 缓存配置
+     * @param string $name 驱动名称
+     * @param string $className 驱动类名（必须实现 StoreInterface）
+     * @return void
      */
-    public function __construct(array $config = [])
+    public static function extend(string $name, string $className): void
     {
-        $this->config = $config;
+        $reflection = new \ReflectionClass($className);
+
+        if (!$reflection->implementsInterface(StoreInterface::class)) {
+            throw new InvalidArgumentException(
+                "自定义驱动类 [{$className}] 必须实现 StoreInterface 接口"
+            );
+        }
+
+        self::$customDrivers[$name] = $className;
     }
 
     /**
@@ -57,6 +72,16 @@ class CacheManager
         }
 
         return self::$instance;
+    }
+
+    /**
+     * 构造函数
+     *
+     * @param array $config 缓存配置
+     */
+    public function __construct(array $config = [])
+    {
+        $this->config = $config;
     }
 
     /**
@@ -97,6 +122,7 @@ class CacheManager
      * 设置默认驱动名称
      *
      * @param string $driver 驱动名称
+     * @return void
      */
     public function setDefaultDriver(string $driver): void
     {
@@ -119,19 +145,16 @@ class CacheManager
             return $this->getConfig($this->getDefaultDriver());
         }
 
-        if ($name === 'file' || $name === 'FileStore') {
-            return [
+        return match ($name) {
+            'file', 'FileStore' => [
                 'type' => 'file',
                 'path' => $this->config['path'] ?? '/tmp/kode_cache',
                 'prefix' => $this->config['prefix'] ?? '',
                 'expire' => $this->config['expire'] ?? 0,
                 'subDir' => $this->config['subDir'] ?? true,
                 'hashType' => $this->config['hashType'] ?? 'md5',
-            ];
-        }
-
-        if ($name === 'redis' || $name === 'RedisStore') {
-            return [
+            ],
+            'redis', 'RedisStore' => [
                 'type' => 'redis',
                 'host' => $this->config['host'] ?? '127.0.0.1',
                 'port' => $this->config['port'] ?? 6379,
@@ -141,19 +164,13 @@ class CacheManager
                 'expire' => $this->config['expire'] ?? 0,
                 'persistent' => $this->config['persistent'] ?? null,
                 'timeout' => $this->config['timeout'] ?? 0.0,
-            ];
-        }
-
-        if ($name === 'memory' || $name === 'MemoryStore') {
-            return [
+            ],
+            'memory', 'MemoryStore' => [
                 'type' => 'memory',
                 'prefix' => $this->config['prefix'] ?? '',
                 'expire' => $this->config['expire'] ?? 0,
-            ];
-        }
-
-        if ($name === 'memcached' || $name === 'MemcachedStore') {
-            return [
+            ],
+            'memcached', 'MemcachedStore' => [
                 'type' => 'memcached',
                 'host' => $this->config['memcached_host'] ?? '127.0.0.1',
                 'port' => $this->config['memcached_port'] ?? 11211,
@@ -161,10 +178,20 @@ class CacheManager
                 'password' => $this->config['memcached_password'] ?? null,
                 'prefix' => $this->config['prefix'] ?? '',
                 'expire' => $this->config['expire'] ?? 0,
-            ];
-        }
-
-        return null;
+            ],
+            'apcu', 'APCuStore' => [
+                'type' => 'apcu',
+                'prefix' => $this->config['prefix'] ?? '',
+                'expire' => $this->config['expire'] ?? 0,
+            ],
+            'sqlite', 'SQLiteStore' => [
+                'type' => 'sqlite',
+                'path' => $this->config['sqlite_path'] ?? ':memory:',
+                'prefix' => $this->config['prefix'] ?? '',
+                'expire' => $this->config['expire'] ?? 0,
+            ],
+            default => null,
+        };
     }
 
     /**
@@ -178,15 +205,20 @@ class CacheManager
     {
         $type = $config['type'] ?? 'file';
 
+        if (isset(self::$customDrivers[$type])) {
+            $className = self::$customDrivers[$type];
+            return new $className($config);
+        }
+
         return match ($type) {
-            'file', 'FileStore' => new FileStore(
+            'file' => new FileStore(
                 $config['path'] ?? '/tmp/kode_cache',
                 $config['prefix'] ?? '',
                 (int) ($config['expire'] ?? 0),
                 (bool) ($config['subDir'] ?? true),
                 $config['hashType'] ?? 'md5'
             ),
-            'redis', 'RedisStore' => new RedisStore(
+            'redis' => new RedisStore(
                 $config['host'] ?? '127.0.0.1',
                 (int) ($config['port'] ?? 6379),
                 $config['password'] ?? null,
@@ -196,15 +228,24 @@ class CacheManager
                 $config['persistent'] ?? null,
                 (float) ($config['timeout'] ?? 0.0)
             ),
-            'memory', 'MemoryStore', 'array' => new MemoryStore(
+            'memory' => new MemoryStore(
                 $config['prefix'] ?? '',
                 (int) ($config['expire'] ?? 0)
             ),
-            'memcached', 'MemcachedStore' => new MemcachedStore(
+            'memcached' => new MemcachedStore(
                 $config['host'] ?? '127.0.0.1',
                 (int) ($config['port'] ?? 11211),
                 $config['username'] ?? null,
                 $config['password'] ?? null,
+                $config['prefix'] ?? '',
+                (int) ($config['expire'] ?? 0)
+            ),
+            'apcu' => new APCuStore(
+                $config['prefix'] ?? '',
+                (int) ($config['expire'] ?? 0)
+            ),
+            'sqlite' => new SQLiteStore(
+                $config['path'] ?? ':memory:',
                 $config['prefix'] ?? '',
                 (int) ($config['expire'] ?? 0)
             ),
@@ -450,6 +491,7 @@ class CacheManager
      * 设置配置
      *
      * @param array $config 配置数组
+     * @return void
      */
     public function setConfig(array $config): void
     {
@@ -472,6 +514,7 @@ class CacheManager
      *
      * @param string $key 缓存键名
      * @param mixed $value 缓存值
+     * @return void
      */
     public function __set(string $key, mixed $value): void
     {
@@ -493,6 +536,7 @@ class CacheManager
      * 删除缓存（魔术方法）
      *
      * @param string $key 缓存键名
+     * @return void
      */
     public function __unset(string $key): void
     {
