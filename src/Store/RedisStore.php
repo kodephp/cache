@@ -354,21 +354,21 @@ class RedisStore implements StoreInterface
 
         $this->redis = new \Redis();
 
-        $connected = false;
-
-        if ($this->persistent !== null) {
-            $connected = $this->redis->pconnect($this->host, $this->port ?? 6379, $this->timeout, $this->persistent);
-        } else {
-            $connected = $this->redis->connect($this->host ?? '127.0.0.1', $this->port ?? 6379, $this->timeout);
-        }
-
-        if (!$connected) {
-            throw new CacheException('无法连接到 Redis 服务器');
+        try {
+            if ($this->persistent !== null) {
+                $this->redis->pconnect($this->host, $this->port ?? 6379, $this->timeout, $this->persistent);
+            } else {
+                $this->redis->connect($this->host ?? '127.0.0.1', $this->port ?? 6379, $this->timeout);
+            }
+        } catch (\RedisException $e) {
+            throw new CacheException('无法连接到 Redis 服务器: ' . $e->getMessage());
         }
 
         if ($this->password !== null) {
-            if (!$this->redis->auth($this->password)) {
-                throw new CacheException('Redis 认证失败');
+            try {
+                $this->redis->auth($this->password);
+            } catch (\RedisException $e) {
+                throw new CacheException('Redis 认证失败: ' . $e->getMessage());
             }
         }
 
