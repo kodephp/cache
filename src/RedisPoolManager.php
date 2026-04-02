@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kode\Cache;
 
 use Kode\Cache\Exception\CacheException;
-use Kode\Context\Context;
 
 /**
  * Redis 连接池管理器
@@ -76,7 +75,7 @@ class RedisPoolManager
      */
     public function getConnection(): \Redis
     {
-        $contextExists = class_exists(Context::class);
+        $contextExists = class_exists(\Kode\Context\Context::class);
 
         if ($contextExists) {
             return $this->getConnectionFromContext();
@@ -93,7 +92,7 @@ class RedisPoolManager
     protected function getConnectionFromContext(): \Redis
     {
         $poolKey = $this->getPoolKey();
-        $poolData = Context::get($poolKey, null);
+        $poolData = \Kode\Context\Context::get($poolKey, null);
 
         $pool = is_array($poolData) ? $poolData : [
             'idle' => [],
@@ -113,7 +112,7 @@ class RedisPoolManager
             }
 
             $pool['active'][$this->getConnectionId($redis)] = time();
-            Context::set($poolKey, $pool);
+            \Kode\Context\Context::set($poolKey, $pool);
 
             return $redis;
         }
@@ -122,7 +121,7 @@ class RedisPoolManager
             $redis = $this->createConnection();
             $pool['created']++;
             $pool['active'][$this->getConnectionId($redis)] = time();
-            Context::set($poolKey, $pool);
+            \Kode\Context\Context::set($poolKey, $pool);
 
             return $redis;
         }
@@ -142,7 +141,7 @@ class RedisPoolManager
         $timeout = (float) $this->waitTimeout;
 
         while (microtime(true) - $startTime < $timeout) {
-            $poolData = Context::get($this->getPoolKey(), []);
+            $poolData = \Kode\Context\Context::get($this->getPoolKey(), []);
             $pool = is_array($poolData) ? $poolData : ['idle' => [], 'active' => [], 'created' => 0];
 
             if (!empty($pool['idle'])) {
@@ -158,7 +157,7 @@ class RedisPoolManager
                 }
 
                 $pool['active'][$this->getConnectionId($redis)] = time();
-                Context::set($this->getPoolKey(), $pool);
+                \Kode\Context\Context::set($this->getPoolKey(), $pool);
 
                 return $redis;
             }
@@ -177,7 +176,7 @@ class RedisPoolManager
      */
     public function releaseConnection(\Redis $redis): void
     {
-        $contextExists = class_exists(Context::class);
+        $contextExists = class_exists(\Kode\Context\Context::class);
 
         if ($contextExists) {
             $this->releaseConnectionToContext($redis);
@@ -194,7 +193,7 @@ class RedisPoolManager
     protected function releaseConnectionToContext(\Redis $redis): void
     {
         $poolKey = $this->getPoolKey();
-        $poolData = Context::get($poolKey, null);
+        $poolData = \Kode\Context\Context::get($poolKey, null);
         $pool = is_array($poolData) ? $poolData : ['idle' => [], 'active' => [], 'created' => 0];
 
         $connId = $this->getConnectionId($redis);
@@ -209,7 +208,7 @@ class RedisPoolManager
                 $pool['created']--;
             }
 
-            Context::set($poolKey, $pool);
+            \Kode\Context\Context::set($poolKey, $pool);
         }
     }
 
@@ -319,7 +318,7 @@ class RedisPoolManager
      */
     public function getStatus(): array
     {
-        $contextExists = class_exists(Context::class);
+        $contextExists = class_exists(\Kode\Context\Context::class);
 
         if (!$contextExists) {
             return [
@@ -330,7 +329,7 @@ class RedisPoolManager
             ];
         }
 
-        $poolData = Context::get($this->getPoolKey(), []);
+        $poolData = \Kode\Context\Context::get($this->getPoolKey(), []);
         $pool = is_array($poolData) ? $poolData : ['idle' => [], 'active' => [], 'created' => 0];
 
         return [
@@ -350,12 +349,12 @@ class RedisPoolManager
      */
     public function close(): void
     {
-        if (!class_exists(Context::class)) {
+        if (!class_exists(\Kode\Context\Context::class)) {
             return;
         }
 
         $poolKey = $this->getPoolKey();
-        $poolData = Context::get($poolKey, []);
+        $poolData = \Kode\Context\Context::get($poolKey, []);
         $pool = is_array($poolData) ? $poolData : ['idle' => [], 'active' => []];
 
         foreach ($pool['idle'] ?? [] as $redis) {
@@ -370,7 +369,7 @@ class RedisPoolManager
             }
         }
 
-        Context::delete($poolKey);
+        \Kode\Context\Context::delete($poolKey);
     }
 
     /**

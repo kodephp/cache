@@ -1,7 +1,7 @@
 {
     "name": "kode/cache",
     "description": "Kode Cache - 高性能缓存组件，支持文件、内存、Redis、Memcached、APCu、SQLite等多种驱动，用于单机和分布式环境",
-    "version": "1.3.3",
+    "version": "1.3.4",
     "keywords": [
         "cache",
         "kode",
