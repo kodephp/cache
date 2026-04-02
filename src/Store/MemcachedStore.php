@@ -277,7 +277,7 @@ class MemcachedStore implements StoreInterface
         }
 
         if (!extension_loaded('memcached')) {
-            throw new CacheException('Memcached 扩展未安装，请运行: pecl install memcached');
+            throw CacheException::connectionFailed('Memcached 扩展未安装，请运行: pecl install memcached');
         }
 
         $this->memcached = new \Memcached();
@@ -288,7 +288,7 @@ class MemcachedStore implements StoreInterface
         }
 
         if (!$this->memcached->addServer($this->host, $this->port)) {
-            throw new CacheException("无法连接到 Memcached 服务器: {$this->host}:{$this->port}");
+            throw CacheException::connectionFailed("无法连接到 Memcached 服务器: {$this->host}:{$this->port}");
         }
     }
 

@@ -349,7 +349,7 @@ class RedisStore implements StoreInterface
         }
 
         if (!extension_loaded('redis')) {
-            throw new CacheException('Redis 扩展未安装，请使用: composer require predis/predis');
+            throw CacheException::connectionFailed('Redis 扩展未安装，请使用: composer require predis/predis');
         }
 
         $this->redis = new \Redis();
@@ -361,14 +361,14 @@ class RedisStore implements StoreInterface
                 $this->redis->connect($this->host ?? '127.0.0.1', $this->port ?? 6379, $this->timeout);
             }
         } catch (\RedisException $e) {
-            throw new CacheException('无法连接到 Redis 服务器: ' . $e->getMessage());
+            throw CacheException::connectionFailed('无法连接到 Redis 服务器: ' . $e->getMessage(), [], $e);
         }
 
         if ($this->password !== null) {
             try {
                 $this->redis->auth($this->password);
             } catch (\RedisException $e) {
-                throw new CacheException('Redis 认证失败: ' . $e->getMessage());
+                throw CacheException::connectionFailed('Redis 认证失败: ' . $e->getMessage(), [], $e);
             }
         }
 

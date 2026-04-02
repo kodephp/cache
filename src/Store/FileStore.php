@@ -104,7 +104,7 @@ class FileStore implements StoreInterface
 
         if (!is_dir($dir)) {
             if (!mkdir($dir, 0755, true) && !is_dir($dir)) {
-                throw new CacheException("无法创建缓存目录: {$dir}");
+                throw CacheException::make("无法创建缓存目录: {$dir}");
             }
         }
 

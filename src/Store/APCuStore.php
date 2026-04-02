@@ -23,13 +23,13 @@ class APCuStore extends AbstractStore
     public function __construct(string $prefix = '', int $expire = 0)
     {
         if (!extension_loaded('apcu')) {
-            throw new CacheException(
+            throw CacheException::connectionFailed(
                 'APCu 扩展未安装，请运行: pecl install apcu'
             );
         }
 
         if (!\apcu_enabled()) {
-            throw new CacheException(
+            throw CacheException::connectionFailed(
                 'APCu 扩展未启用，请在 php.ini 中设置: apc.enabled=1'
             );
         }
