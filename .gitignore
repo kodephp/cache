@@ -1,0 +1,13 @@
+.DS_Store
+.idea
+.vscode
+.git
+/vendor/
+/node_modules/
+*.log
+composer.lock
+.phpunit.cache/
+*.swp
+*.swo
+*~
+.trae/

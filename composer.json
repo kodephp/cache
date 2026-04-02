@@ -1,0 +1,53 @@
+{
+    "name": "kode/cache",
+    "description": "Kode Cache - 高性能缓存组件，支持文件、内存、Redis、Memcached等多种驱动，用于单机和分布式环境",
+    "version": "1.0.0",
+    "keywords": [
+        "cache",
+        "kode",
+        "redis",
+        "memcached",
+        "file",
+        "memory",
+        "distributed",
+        "lock",
+        "rate-limiter"
+    ],
+    "license": "Apache-2.0",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Kode Team",
+            "email": "382601296@qq.com",
+            "homepage": "https://github.com/kodephp"
+        }
+    ],
+    "require": {
+        "php": ">=8.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    },
+    "suggest": {
+        "kode/exception": "Kode Exception - 统一异常处理组件",
+        "kode/limiting": "Kode Limiting - 限流组件",
+        "ext-redis": "Redis 扩展 - 用于 Redis 缓存驱动",
+        "ext-memcached": "Memcached 扩展 - 用于 Memcached 缓存驱动",
+        "ext-igbinary": "Igbinary 扩展 - 用于更高效的序列化"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kode\\Cache\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Kode\\Cache\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true
+    }
+}
