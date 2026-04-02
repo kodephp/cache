@@ -11,9 +11,6 @@ namespace Kode\Cache;
  */
 class CoLock
 {
-    /** @var string|null 上下文管理器类名 */
-    protected static ?string $contextClass = null;
-
     /** @var string 锁名称 */
     protected string $name;
 
@@ -79,13 +76,11 @@ class CoLock
      */
     protected function tryAcquire(): bool
     {
-        $contextClass = self::getContextClass();
-
-        if ($contextClass === null) {
+        if (!class_exists(\Kode\Context::class)) {
             return $this->acquireWithoutContext();
         }
 
-        $locks = $contextClass::get($this->storageKey, []);
+        $locks = \Kode\Context::get($this->storageKey, []);
 
         foreach ($locks as $token => $expireAt) {
             if ($expireAt > 0 && $expireAt < time()) {
@@ -98,7 +93,7 @@ class CoLock
         }
 
         $locks[$this->token] = $this->timeout > 0 ? time() + $this->timeout : 0;
-        $contextClass::set($this->storageKey, $locks);
+        \Kode\Context::set($this->storageKey, $locks);
 
         return true;
     }
@@ -145,12 +140,11 @@ class CoLock
         }
 
         $this->owner = false;
-        $contextClass = self::getContextClass();
 
-        if ($contextClass !== null) {
-            $locks = $contextClass::get($this->storageKey, []);
+        if (class_exists(\Kode\Context::class)) {
+            $locks = \Kode\Context::get($this->storageKey, []);
             unset($locks[$this->token]);
-            $contextClass::set($this->storageKey, $locks);
+            \Kode\Context::set($this->storageKey, $locks);
         }
 
         return true;
@@ -167,10 +161,8 @@ class CoLock
             return false;
         }
 
-        $contextClass = self::getContextClass();
-
-        if ($contextClass !== null) {
-            $locks = $contextClass::get($this->storageKey, []);
+        if (class_exists(\Kode\Context::class)) {
+            $locks = \Kode\Context::get($this->storageKey, []);
             return isset($locks[$this->token]);
         }
 
@@ -238,13 +230,12 @@ class CoLock
         }
 
         $this->timeout = $seconds;
-        $contextClass = self::getContextClass();
 
-        if ($contextClass !== null) {
-            $locks = $contextClass::get($this->storageKey, []);
+        if (class_exists(\Kode\Context::class)) {
+            $locks = \Kode\Context::get($this->storageKey, []);
             if (isset($locks[$this->token])) {
                 $locks[$this->token] = time() + $seconds;
-                $contextClass::set($this->storageKey, $locks);
+                \Kode\Context::set($this->storageKey, $locks);
             }
         }
 
@@ -268,44 +259,6 @@ class CoLock
         } else {
             usleep((int) ($this->retryInterval * 1000000));
         }
-    }
-
-    /**
-     * 获取上下文管理器类名
-     *
-     * @return string|null
-     */
-    protected static function getContextClass(): ?string
-    {
-        if (self::$contextClass !== null) {
-            return self::$contextClass;
-        }
-
-        if (!class_exists(\Kode\Context::class)) {
-            return null;
-        }
-
-        self::$contextClass = \Kode\Context::class;
-
-        return self::$contextClass;
-    }
-
-    /**
-     * 设置上下文管理器类名
-     *
-     * @param string $contextClass 上下文管理器类名
-     */
-    public static function setContextClass(string $contextClass): void
-    {
-        self::$contextClass = $contextClass;
-    }
-
-    /**
-     * 重置上下文管理器
-     */
-    public static function resetContext(): void
-    {
-        self::$contextClass = null;
     }
 
     /**

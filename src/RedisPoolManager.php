@@ -41,9 +41,6 @@ class RedisPoolManager
     /** @var int 等待超时（秒） */
     protected int $waitTimeout;
 
-    /** @var string|null 上下文管理器类名 */
-    protected static ?string $contextClass = null;
-
     /**
      * 构造函数
      *
@@ -78,10 +75,10 @@ class RedisPoolManager
      */
     public function getConnection(): \Redis
     {
-        $contextClass = self::getContextClass();
+        $contextExists = class_exists(\Kode\Context::class);
 
-        if ($contextClass !== null) {
-            return $this->getConnectionFromContext($contextClass);
+        if ($contextExists) {
+            return $this->getConnectionFromContext();
         }
 
         return $this->createConnection();
@@ -90,13 +87,12 @@ class RedisPoolManager
     /**
      * 从上下文获取连接
      *
-     * @param string $contextClass 上下文类名
      * @return \Redis
      */
-    protected function getConnectionFromContext(string $contextClass): \Redis
+    protected function getConnectionFromContext(): \Redis
     {
         $poolKey = $this->getPoolKey();
-        $poolData = $contextClass::get($poolKey, null);
+        $poolData = \Kode\Context::get($poolKey, null);
 
         $pool = is_array($poolData) ? $poolData : [
             'idle' => [],
@@ -116,7 +112,7 @@ class RedisPoolManager
             }
 
             $pool['active'][$this->getConnectionId($redis)] = time();
-            $contextClass::set($poolKey, $pool);
+            \Kode\Context::set($poolKey, $pool);
 
             return $redis;
         }
@@ -125,28 +121,27 @@ class RedisPoolManager
             $redis = $this->createConnection();
             $pool['created']++;
             $pool['active'][$this->getConnectionId($redis)] = time();
-            $contextClass::set($poolKey, $pool);
+            \Kode\Context::set($poolKey, $pool);
 
             return $redis;
         }
 
-        return $this->waitAndGetConnection($contextClass, $pool);
+        return $this->waitAndGetConnection($pool);
     }
 
     /**
      * 等待并获取连接
      *
-     * @param string $contextClass 上下文类名
      * @param array $pool 连接池数据
      * @return \Redis
      */
-    protected function waitAndGetConnection(string $contextClass, array $pool): \Redis
+    protected function waitAndGetConnection(array $pool): \Redis
     {
         $startTime = microtime(true);
         $timeout = (float) $this->waitTimeout;
 
         while (microtime(true) - $startTime < $timeout) {
-            $poolData = $contextClass::get($this->getPoolKey(), []);
+            $poolData = \Kode\Context::get($this->getPoolKey(), []);
             $pool = is_array($poolData) ? $poolData : ['idle' => [], 'active' => [], 'created' => 0];
 
             if (!empty($pool['idle'])) {
@@ -162,7 +157,7 @@ class RedisPoolManager
                 }
 
                 $pool['active'][$this->getConnectionId($redis)] = time();
-                $contextClass::set($this->getPoolKey(), $pool);
+                \Kode\Context::set($this->getPoolKey(), $pool);
 
                 return $redis;
             }
@@ -181,10 +176,10 @@ class RedisPoolManager
      */
     public function releaseConnection(\Redis $redis): void
     {
-        $contextClass = self::getContextClass();
+        $contextExists = class_exists(\Kode\Context::class);
 
-        if ($contextClass !== null) {
-            $this->releaseConnectionToContext($contextClass, $redis);
+        if ($contextExists) {
+            $this->releaseConnectionToContext($redis);
         } else {
             $this->closeConnection($redis);
         }
@@ -193,13 +188,12 @@ class RedisPoolManager
     /**
      * 释放连接到上下文
      *
-     * @param string $contextClass 上下文类名
      * @param \Redis $redis Redis 连接
      */
-    protected function releaseConnectionToContext(string $contextClass, \Redis $redis): void
+    protected function releaseConnectionToContext(\Redis $redis): void
     {
         $poolKey = $this->getPoolKey();
-        $poolData = $contextClass::get($poolKey, null);
+        $poolData = \Kode\Context::get($poolKey, null);
         $pool = is_array($poolData) ? $poolData : ['idle' => [], 'active' => [], 'created' => 0];
 
         $connId = $this->getConnectionId($redis);
@@ -214,7 +208,7 @@ class RedisPoolManager
                 $pool['created']--;
             }
 
-            $contextClass::set($poolKey, $pool);
+            \Kode\Context::set($poolKey, $pool);
         }
     }
 
@@ -318,53 +312,15 @@ class RedisPoolManager
     }
 
     /**
-     * 获取上下文类名
-     *
-     * @return string|null
-     */
-    protected static function getContextClass(): ?string
-    {
-        if (self::$contextClass !== null) {
-            return self::$contextClass;
-        }
-
-        if (!class_exists(\Kode\Context::class)) {
-            return null;
-        }
-
-        self::$contextClass = \Kode\Context::class;
-
-        return self::$contextClass;
-    }
-
-    /**
-     * 设置上下文管理器类名
-     *
-     * @param string $contextClass 上下文管理器类名
-     */
-    public static function setContextClass(string $contextClass): void
-    {
-        self::$contextClass = $contextClass;
-    }
-
-    /**
-     * 重置上下文管理器
-     */
-    public static function resetContext(): void
-    {
-        self::$contextClass = null;
-    }
-
-    /**
      * 获取连接池状态
      *
      * @return array
      */
     public function getStatus(): array
     {
-        $contextClass = self::getContextClass();
+        $contextExists = class_exists(\Kode\Context::class);
 
-        if ($contextClass === null) {
+        if (!$contextExists) {
             return [
                 'host' => $this->host,
                 'port' => $this->port,
@@ -373,7 +329,7 @@ class RedisPoolManager
             ];
         }
 
-        $poolData = $contextClass::get($this->getPoolKey(), []);
+        $poolData = \Kode\Context::get($this->getPoolKey(), []);
         $pool = is_array($poolData) ? $poolData : ['idle' => [], 'active' => [], 'created' => 0];
 
         return [
@@ -393,14 +349,12 @@ class RedisPoolManager
      */
     public function close(): void
     {
-        $contextClass = self::getContextClass();
-
-        if ($contextClass === null) {
+        if (!class_exists(\Kode\Context::class)) {
             return;
         }
 
         $poolKey = $this->getPoolKey();
-        $poolData = $contextClass::get($poolKey, []);
+        $poolData = \Kode\Context::get($poolKey, []);
         $pool = is_array($poolData) ? $poolData : ['idle' => [], 'active' => []];
 
         foreach ($pool['idle'] ?? [] as $redis) {
@@ -415,7 +369,7 @@ class RedisPoolManager
             }
         }
 
-        $contextClass::delete($poolKey);
+        \Kode\Context::delete($poolKey);
     }
 
     /**
