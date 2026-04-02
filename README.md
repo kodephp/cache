@@ -14,6 +14,7 @@
 - [缓存项](#缓存项)
 - [序列化器](#序列化器)
 - [分布式锁](#分布式锁)
+- [协程锁](#协程锁)
 - [原子计数器](#原子计数器)
 - [限流器](#限流器)
 - [配置管理](#配置管理)
@@ -32,11 +33,12 @@
 - **PSR-16 规范**: 遵循 PHP 标准缓存接口
 - **序列化支持**: PHP serialize、JSON、igbinary
 - **分布式支持**: Redis 分布式锁、原子计数器、限流器
+- **协程支持**: CoLock 协程锁，支持 Swoole/Fiber/Swow 等协程环境
 - **缓存标签**: 分组管理和批量操作
 - **链式调用**: 简洁的 API 设计
 - **PHP 8.1+**: 利用最新 PHP 特性和性能优化
 - **自定义扩展**: 支持通过 `extend()` 方法注册自定义驱动
-- **优雅降级**: 可选依赖 `kode/exception`、`kode/limiting`
+- **Kode 生态**: 无缝对接 kode/context、kode/limiting 等组件
 
 ---
 
@@ -607,6 +609,54 @@ if ($lock->block(5)) {
     // ...
 }
 ```
+
+### 协程锁
+
+适用于 Swoole/Fiber/Swow 等协程环境的同步锁，支持协程间协调。
+
+```php
+use Kode\Cache\CoLock;
+
+// 创建协程锁
+$lock = new CoLock('coroutine_lock', 10); // 10秒超时
+
+// 获取锁（非阻塞）
+if ($lock->acquire()) {
+    try {
+        // 临界区操作
+        do_something();
+    } finally {
+        $lock->release();
+    }
+}
+
+// 阻塞获取锁（等待最多 5 秒）
+$lock = new CoLock('blocking_lock');
+if ($lock->block(5)) {
+    try {
+        do_something();
+    } finally {
+        $lock->release();
+    }
+}
+
+// 检查锁是否被持有
+if ($lock->isOwned()) {
+    // ...
+}
+
+// 锁延期
+$lock->extend(30);
+
+// 设置上下文管理器（可选，用于协程间协调）
+use Kode\Cache\CoLock;
+CoLock::setContext(\Kode\Context::class);
+
+// 重置上下文
+CoLock::resetContext();
+```
+
+**注意**: 协程锁需要 `kode/context` 包支持，如未安装则使用本地静态存储。
 
 ---
 
