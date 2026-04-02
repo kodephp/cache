@@ -16,6 +16,7 @@
 - [分布式锁](#分布式锁)
 - [协程锁](#协程锁)
 - [原子计数器](#原子计数器)
+- [Redis 连接池管理器](#redis-连接池管理器)
 - [限流器](#限流器)
 - [配置管理](#配置管理)
 - [异常处理](#异常处理)
@@ -682,6 +683,41 @@ $views = $counter->get();
 // 重置
 $counter->reset();
 ```
+
+---
+
+## Redis 连接池管理器
+
+协程安全的 Redis 连接池，支持 Swoole/Fiber/Swow 等协程环境。
+
+```php
+use Kode\Cache\RedisPoolManager;
+
+// 创建连接池
+$pool = RedisPoolManager::make('127.0.0.1', 6379, null, 0, [
+    'min_connections' => 1,
+    'max_connections' => 10,
+    'idle_timeout' => 60,
+    'wait_timeout' => 5,
+]);
+
+// 获取连接
+$redis = $pool->getConnection();
+try {
+    $redis->set('key', 'value');
+    $value = $redis->get('key');
+} finally {
+    $pool->releaseConnection($redis);
+}
+
+// 获取连接池状态
+$status = $pool->getStatus();
+
+// 关闭连接池
+$pool->close();
+```
+
+**注意**: 连接池需要 `kode/context` 包支持协程间连接隔离。
 
 ---
 
