@@ -184,7 +184,9 @@ class RedisStore implements StoreInterface
     /**
      * 清空所有缓存
      *
-     * 使用 SCAN 增量迭代 + UNLINK/DEL 批量删除，避免 KEYS 全量阻塞（O(N) 且阻塞单线程）
+     * 仅清理当前 prefix 下的 Key，采用 SCAN 增量迭代 + UNLINK/DEL 批量删除，
+     * 避免 KEYS prefix* 全库扫描 O(N) 阻塞 Redis 单线程（生产误触可导致阻塞）。
+     * 空 prefix 时迭代 SCAN * 分批删除，非阻塞；生产建议始终配置 prefix 隔离业务。
      *
      * @return bool
      */
@@ -192,36 +194,17 @@ class RedisStore implements StoreInterface
     {
         $this->checkConnection();
 
-        // 前缀为空：等价于清空当前 DB，直接 FLUSHDB 比 KEYS+DEL 更高效
-        // 优先尝试异步 FLUSHDB（Redis >=4.0），失败则回退同步
-        if ($this->prefix === '') {
-            try {
-                // phpredis flushDB(bool $async = false)
-                if (method_exists($this->redis, 'flushDB')) {
-                    return (bool) $this->redis->flushDB(true);
-                }
-            } catch (\Throwable) {
-                // 忽略异步参数不兼容，回退同步
-            }
-            return (bool) $this->redis->flushDB();
-        }
-
-        // RedisCluster / RedisArray 的 SCAN 语义与单机不同，且 KEYS 在集群下仍可能阻塞
-        // 为避免语义错误，对集群保持 SCAN 尝试，失败则回退 KEYS 兜底
-        $pattern = $this->prefix . '*';
-
-        // 集群/数组：尝试逐节点 SCAN，失败回退 KEYS
-        if ($this->redis instanceof \RedisCluster || $this->redis instanceof \RedisArray) {
-            return $this->clearByScan($pattern);
-        }
+        // 仅清 prefix 下的 key：prefix 为空则为 "*"（全库），否则为 "prefix*"
+        // 统一走 SCAN 增量迭代，禁用 KEYS/FLUSHDB 阻塞操作
+        $pattern = $this->prefix === '' ? '*' : $this->prefix . '*';
 
         return $this->clearByScan($pattern);
     }
 
     /**
-     * 基于 SCAN 迭代删除
+     * 基于 SCAN 迭代删除（COUNT 控制每次迭代返回数量，避免单次过大阻塞）
      */
-    private function clearByScan(string $pattern, int $count = 100): bool
+    private function clearByScan(string $pattern, int $count = 500): bool
     {
         $iterator = null;
 

@@ -206,7 +206,7 @@ $cache = new CacheManager([
 - 性能优异
 - 支持原子操作
 - 需要 ext-redis 或 predis/predis
-- `clear()` 基于 `SCAN` 增量迭代 + `UNLINK` 异步删除，无 `KEYS` 阻塞（`v1.3.5+`）；空前缀时使用 `FLUSHDB async`
+- `clear()` 仅清 `prefix` 下 Key，基于 `SCAN COUNT 500` 增量迭代 + `UNLINK` 异步删除，无 `KEYS`/`FLUSHDB` 阻塞（`v1.3.6+`）；空 `prefix` 时 `SCAN *` 分批删，生产务必配置 `prefix` 隔离
 
 ### Memcached 驱动
 
@@ -1023,7 +1023,7 @@ kode/cache/
 
 1. **文件驱动**: 适用于低流量场景，注意定期清理过期文件
 2. **内存驱动**: 适用于请求内共享数据，不支持持久化
-3. **Redis 驱动**: 适用于生产环境，推荐使用，支持分布式；`clear()` 已优化为 `SCAN COUNT 100` + `UNLINK` 批量删除，避免 `KEYS prefix*` 的 `O(N)` 阻塞；生产环境建议始终设置 `prefix` 以隔离业务 Key，避免 `FLUSHDB` 误删同库其他业务数据
+3. **Redis 驱动**: 适用于生产环境，推荐使用，支持分布式；`clear()` 仅清 `prefix` 已优化为 `SCAN COUNT 500` + `UNLINK` 分批删除，无 `KEYS`/`FLUSHDB` 阻塞；生产务必设置 `prefix` 隔离业务，避免空 `prefix` 下 `SCAN *` 误删同库其他业务
 4. **Memcached 驱动**: 适用于高并发分布式缓存，比 Redis 更轻量
 5. **APCu 驱动**: 适用于单机高性能缓存，无需额外进程
 6. **SQLite 驱动**: 适用于轻量持久化，无需配置数据库服务器
@@ -1031,6 +1031,10 @@ kode/cache/
 ---
 
 ## 更新日志
+
+### v1.3.6 (2026-08-27)
+
+- **fix(RedisStore)**: `RedisStore::clear()` 彻底移除 `KEYS O(N)`/`FLUSHDB` 阻塞，统一改为仅清 `prefix` 下 `SCAN` 增量迭代 + `UNLINK`/`DEL` 分批删除（`COUNT 500`），`prefix` 为空时 `SCAN *` 分批删，杜绝生产全库 `KEYS prefix*` 误触阻塞。见 `src/Store/RedisStore.php:191`
 
 ### v1.3.5 (2026-08-27)
 
