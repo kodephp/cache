@@ -184,19 +184,90 @@ class RedisStore implements StoreInterface
     /**
      * 清空所有缓存
      *
+     * 使用 SCAN 增量迭代 + UNLINK/DEL 批量删除，避免 KEYS 全量阻塞（O(N) 且阻塞单线程）
+     *
      * @return bool
      */
     public function clear(): bool
     {
         $this->checkConnection();
 
-        $keys = $this->redis->keys($this->prefix . '*');
-
-        if (!empty($keys)) {
-            $this->redis->del($keys);
+        // 前缀为空：等价于清空当前 DB，直接 FLUSHDB 比 KEYS+DEL 更高效
+        // 优先尝试异步 FLUSHDB（Redis >=4.0），失败则回退同步
+        if ($this->prefix === '') {
+            try {
+                // phpredis flushDB(bool $async = false)
+                if (method_exists($this->redis, 'flushDB')) {
+                    return (bool) $this->redis->flushDB(true);
+                }
+            } catch (\Throwable) {
+                // 忽略异步参数不兼容，回退同步
+            }
+            return (bool) $this->redis->flushDB();
         }
 
+        // RedisCluster / RedisArray 的 SCAN 语义与单机不同，且 KEYS 在集群下仍可能阻塞
+        // 为避免语义错误，对集群保持 SCAN 尝试，失败则回退 KEYS 兜底
+        $pattern = $this->prefix . '*';
+
+        // 集群/数组：尝试逐节点 SCAN，失败回退 KEYS
+        if ($this->redis instanceof \RedisCluster || $this->redis instanceof \RedisArray) {
+            return $this->clearByScan($pattern);
+        }
+
+        return $this->clearByScan($pattern);
+    }
+
+    /**
+     * 基于 SCAN 迭代删除
+     */
+    private function clearByScan(string $pattern, int $count = 100): bool
+    {
+        $iterator = null;
+
+        // phpredis: scan(?int &$iterator, ?string $pattern, int $count): array|false
+        // 兼容不同版本的签名（$iterator 传引用会被置为下一个游标，结束时为 0）
+        do {
+            $keys = null;
+            try {
+                $keys = $this->redis->scan($iterator, $pattern, $count);
+            } catch (\Throwable) {
+                // SCAN 不可用（如旧版本/集群不支持），回退 KEYS
+                $keys = $this->redis->keys($pattern);
+                if (!empty($keys)) {
+                    $this->deleteKeys($keys);
+                }
+                return true;
+            }
+
+            if ($keys === false) {
+                $keys = [];
+            }
+
+            if (!empty($keys)) {
+                $this->deleteKeys($keys);
+            }
+        } while ($iterator > 0);
+
         return true;
+    }
+
+    /**
+     * 批量删除，优先 UNLINK（异步回收内存，Redis >=4.0），否则 DEL
+     *
+     * @param array $keys
+     */
+    private function deleteKeys(array $keys): void
+    {
+        if (method_exists($this->redis, 'unlink')) {
+            try {
+                $this->redis->unlink($keys);
+                return;
+            } catch (\Throwable) {
+                // unlink 不可用回退 del
+            }
+        }
+        $this->redis->del($keys);
     }
 
     /**

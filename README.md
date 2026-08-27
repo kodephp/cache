@@ -25,6 +25,7 @@
 - [目录结构](#目录结构)
 - [测试](#测试)
 - [性能建议](#性能建议)
+- [更新日志](#更新日志)
 
 ---
 
@@ -205,6 +206,7 @@ $cache = new CacheManager([
 - 性能优异
 - 支持原子操作
 - 需要 ext-redis 或 predis/predis
+- `clear()` 基于 `SCAN` 增量迭代 + `UNLINK` 异步删除，无 `KEYS` 阻塞（`v1.3.5+`）；空前缀时使用 `FLUSHDB async`
 
 ### Memcached 驱动
 
@@ -1021,7 +1023,27 @@ kode/cache/
 
 1. **文件驱动**: 适用于低流量场景，注意定期清理过期文件
 2. **内存驱动**: 适用于请求内共享数据，不支持持久化
-3. **Redis 驱动**: 适用于生产环境，推荐使用，支持分布式
+3. **Redis 驱动**: 适用于生产环境，推荐使用，支持分布式；`clear()` 已优化为 `SCAN COUNT 100` + `UNLINK` 批量删除，避免 `KEYS prefix*` 的 `O(N)` 阻塞；生产环境建议始终设置 `prefix` 以隔离业务 Key，避免 `FLUSHDB` 误删同库其他业务数据
 4. **Memcached 驱动**: 适用于高并发分布式缓存，比 Redis 更轻量
 5. **APCu 驱动**: 适用于单机高性能缓存，无需额外进程
 6. **SQLite 驱动**: 适用于轻量持久化，无需配置数据库服务器
+
+---
+
+## 更新日志
+
+### v1.3.5 (2026-08-27)
+
+- **fix(RedisStore)**: `RedisStore::clear()` 移除 `KEYS O(N)` 阻塞实现，改为 `SCAN` 游标增量迭代 + `UNLINK`/`DEL` 批量删除，`prefix` 为空时改用 `FLUSHDB async`，解决大 Key 空间下清空操作阻塞 Redis 单线程的问题。见 `src/Store/RedisStore.php:191`
+
+### v1.3.4
+
+- 修复 `Context` 命名空间为 `\Kode\Context\Context`
+
+### v1.3.0
+
+- 新增 `RedisPoolManager` 协程安全连接池
+
+### v1.2.0
+
+- 新增协程锁 `CoLock`
