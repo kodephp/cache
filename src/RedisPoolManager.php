@@ -109,6 +109,7 @@ class RedisPoolManager
                 $this->closeConnection($redis);
                 $pool['created']--;
                 $redis = $this->createConnection();
+                $pool['created']++;
             }
 
             $pool['active'][$this->getConnectionId($redis)] = time();

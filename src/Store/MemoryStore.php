@@ -77,10 +77,12 @@ class MemoryStore implements StoreInterface
     {
         $key = $this->getKey($key);
 
+        // 与 AbstractStore::resolveExpire 契约一致：ttl=0 表示永久（expire=0），
+        // 旧写法存 -1 会让条目在首次读取时即被删除
         if ($ttl === null) {
             $expire = $this->expire > 0 ? time() + $this->expire : 0;
         } elseif ($ttl === 0) {
-            $expire = -1;
+            $expire = 0;
         } else {
             $expire = time() + $ttl;
         }
@@ -103,15 +105,17 @@ class MemoryStore implements StoreInterface
      */
     public function add(string $key, mixed $value, ?int $ttl = null): bool
     {
-        $key = $this->getKey($key);
+        $prefixed = $this->getKey($key);
 
-        if (isset($this->storage[$key])) {
-            $item = $this->storage[$key];
+        if (isset($this->storage[$prefixed])) {
+            $item = $this->storage[$prefixed];
+            // expire=0 为永久；仅当已过期才允许覆盖
             if (!($item['expire'] > 0 && $item['expire'] < time()) && $item['expire'] !== -1) {
                 return false;
             }
         }
 
+        // 传原始 key，由 set() 统一加前缀，避免 add() 双前缀导致 get/has 恒 miss
         return $this->set($key, $value, $ttl);
     }
 

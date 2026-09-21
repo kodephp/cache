@@ -108,7 +108,13 @@ class FileStore implements StoreInterface
             }
         }
 
-        $expire = $ttl !== null ? time() + $ttl : ($this->expire > 0 ? time() + $this->expire : 0);
+        // 与 AbstractStore::resolveExpire 契约一致：ttl=0（含 forever()）为永久，负数立即过期；
+        // 旧写法 time()+0 会让"永久"条目一秒内过期
+        $expire = match (true) {
+            $ttl === null => $this->expire > 0 ? time() + $this->expire : 0,
+            $ttl === 0 => 0,
+            default => time() + $ttl,
+        };
 
         $data = [
             'expire' => $expire,

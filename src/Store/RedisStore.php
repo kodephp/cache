@@ -116,18 +116,24 @@ class RedisStore implements StoreInterface
     {
         $this->checkConnection();
 
-        $expire = $ttl !== null ? time() + $ttl : ($this->expire > 0 ? time() + $this->expire : 0);
+        // 与 AbstractStore::resolveExpire 契约一致：ttl=0（含 forever()）为永久，
+        // 负数为立即过期；旧写法把 ttl=0 喂给 setex 会报 invalid expire time
+        $ttlSeconds = match (true) {
+            $ttl === null => max(0, $this->expire),
+            $ttl === 0 => 0,
+            default => $ttl,
+        };
 
-        if ($expire > 0) {
+        if ($ttlSeconds > 0) {
             $data = serialize([
-                'expire' => $expire,
+                'expire' => time() + $ttlSeconds,
                 'value' => $value,
             ]);
 
-            $result = $this->redis->setex($this->getKey($key), $expire - time(), $data);
+            $result = $this->redis->setex($this->getKey($key), $ttlSeconds, $data);
         } else {
             $data = serialize([
-                'expire' => 0,
+                'expire' => $ttlSeconds < 0 ? time() + $ttlSeconds : 0,
                 'value' => $value,
             ]);
 
@@ -265,12 +271,13 @@ class RedisStore implements StoreInterface
         $this->checkConnection();
 
         $keys = is_array($keys) ? $keys : iterator_to_array($keys);
-        $memcachedKeys = array_map(fn($k) => $this->getKey((string) $k), $keys);
+        $keyList = array_values($keys);
+        $memcachedKeys = array_map(fn($k) => $this->getKey((string) $k), $keyList);
 
-        $values = $this->redis->mget($memcachedKeys);
+        $values = array_values((array) $this->redis->mget($memcachedKeys));
 
         $result = [];
-        foreach ($keys as $i => $key) {
+        foreach ($keyList as $i => $key) {
             $value = $values[$i] ?? false;
 
             if ($value === false) {
@@ -406,29 +413,32 @@ class RedisStore implements StoreInterface
             throw CacheException::connectionFailed('Redis 扩展未安装，请使用: composer require predis/predis');
         }
 
-        $this->redis = new \Redis();
+        $redis = new \Redis();
 
         try {
             if ($this->persistent !== null) {
-                $this->redis->pconnect($this->host, $this->port ?? 6379, $this->timeout, $this->persistent);
+                $redis->pconnect($this->host, $this->port ?? 6379, $this->timeout, $this->persistent);
             } else {
-                $this->redis->connect($this->host ?? '127.0.0.1', $this->port ?? 6379, $this->timeout);
+                $redis->connect($this->host ?? '127.0.0.1', $this->port ?? 6379, $this->timeout);
             }
         } catch (\RedisException $e) {
+            // 失败时不挂载半死实例，否则 isset($this->redis) 恒真、该 worker 永久无法重连
             throw CacheException::connectionFailed('无法连接到 Redis 服务器: ' . $e->getMessage(), [], $e);
         }
 
         if ($this->password !== null) {
             try {
-                $this->redis->auth($this->password);
+                $redis->auth($this->password);
             } catch (\RedisException $e) {
                 throw CacheException::connectionFailed('Redis 认证失败: ' . $e->getMessage(), [], $e);
             }
         }
 
         if ($this->database > 0) {
-            $this->redis->select($this->database);
+            $redis->select($this->database);
         }
+
+        $this->redis = $redis;
     }
 
     /**

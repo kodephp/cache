@@ -92,6 +92,11 @@ class CoLock
             return true;
         }
 
+        // 存在他人活令牌即失败，否则锁形同虚设（旧实现恒返回 true，无互斥）
+        if ($locks !== []) {
+            return false;
+        }
+
         $locks[$this->token] = $this->timeout > 0 ? time() + $this->timeout : 0;
         \Kode\Context\Context::set($this->storageKey, $locks);
 
@@ -99,19 +104,19 @@ class CoLock
     }
 
     /**
-     * 无上下文时的获取锁方式
+     * 无上下文时的获取锁方式（进程内静态存储）
      *
      * @return bool
      */
     protected function acquireWithoutContext(): bool
     {
-        static $localStorage = [];
+        $store = &self::localStore();
 
-        if (!isset($localStorage[$this->storageKey])) {
-            $localStorage[$this->storageKey] = [];
+        if (!isset($store[$this->storageKey])) {
+            $store[$this->storageKey] = [];
         }
 
-        $locks = &$localStorage[$this->storageKey];
+        $locks = &$store[$this->storageKey];
 
         foreach ($locks as $token => $expireAt) {
             if ($expireAt > 0 && $expireAt < time()) {
@@ -123,9 +128,24 @@ class CoLock
             return true;
         }
 
+        if ($locks !== []) {
+            return false;
+        }
+
         $locks[$this->token] = $this->timeout > 0 ? time() + $this->timeout : 0;
 
         return true;
+    }
+
+    /**
+     * 无 Context 时的进程内锁存储（按引用返回，保证 release 能清掉 acquire 写入的令牌）
+     *
+     * @return array<string, array<string, int>>
+     */
+    protected static function &localStore(): array
+    {
+        static $localStorage = [];
+        return $localStorage;
     }
 
     /**
@@ -145,6 +165,11 @@ class CoLock
             $locks = \Kode\Context\Context::get($this->storageKey, []);
             unset($locks[$this->token]);
             \Kode\Context\Context::set($this->storageKey, $locks);
+        } else {
+            $store = &self::localStore();
+            if (isset($store[$this->storageKey][$this->token])) {
+                unset($store[$this->storageKey][$this->token]);
+            }
         }
 
         return true;
@@ -166,7 +191,8 @@ class CoLock
             return isset($locks[$this->token]);
         }
 
-        return $this->owner;
+        $store = &self::localStore();
+        return isset($store[$this->storageKey][$this->token]);
     }
 
     /**
@@ -236,6 +262,11 @@ class CoLock
             if (isset($locks[$this->token])) {
                 $locks[$this->token] = time() + $seconds;
                 \Kode\Context\Context::set($this->storageKey, $locks);
+            }
+        } else {
+            $store = &self::localStore();
+            if (isset($store[$this->storageKey][$this->token])) {
+                $store[$this->storageKey][$this->token] = time() + $seconds;
             }
         }
 
