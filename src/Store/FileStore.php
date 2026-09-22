@@ -103,8 +103,20 @@ class FileStore implements StoreInterface
         $dir = dirname($file);
 
         if (!is_dir($dir)) {
-            if (!mkdir($dir, 0755, true) && !is_dir($dir)) {
-                throw CacheException::make("无法创建缓存目录: {$dir}");
+            // mkdir 失败时 PHP 会先抛一条 warning（"Not a directory" / "Permission denied"），
+            // 常驻进程里它会污染日志；捕获下来并入异常消息，既留住了原因又不出噪音。
+            $reason = null;
+            set_error_handler(static function (int $severity, string $message) use (&$reason): bool {
+                $reason = $message;
+
+                return true;
+            });
+            $created = mkdir($dir, 0755, true);
+            restore_error_handler();
+
+            if (!$created && !is_dir($dir)) {
+                throw CacheException::cacheError("无法创建缓存目录: {$dir}"
+                    . ($reason === null ? '' : "（{$reason}）"));
             }
         }
 

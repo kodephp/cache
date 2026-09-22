@@ -51,7 +51,7 @@ class CacheManager
         $reflection = new \ReflectionClass($className);
 
         if (!$reflection->implementsInterface(StoreInterface::class)) {
-            throw new InvalidArgumentException(
+            throw InvalidArgumentException::invalidArgument(
                 "自定义驱动类 [{$className}] 必须实现 StoreInterface 接口"
             );
         }
@@ -100,7 +100,7 @@ class CacheManager
         $config = $this->getConfig($name);
 
         if ($config === null) {
-            throw new InvalidArgumentException("缓存驱动 [{$name}] 未配置");
+            throw InvalidArgumentException::driverNotFound($name);
         }
 
         $this->stores[$name] = $this->createDriver($config);
@@ -204,6 +204,9 @@ class CacheManager
     protected function createDriver(array $config): StoreInterface
     {
         $type = $config['type'] ?? 'file';
+        // 内置驱动别名（array → memory）：PHP 侧习惯把内存态驱动叫 array，
+        // 不接线就会落到 default 分支抛「不支持的缓存驱动类型」。
+        $type = self::$driverAliases[$type] ?? $type;
 
         if (isset(self::$customDrivers[$type])) {
             $className = self::$customDrivers[$type];
@@ -249,7 +252,7 @@ class CacheManager
                 $config['prefix'] ?? '',
                 (int) ($config['expire'] ?? 0)
             ),
-            default => throw new InvalidArgumentException("不支持的缓存驱动类型: {$type}"),
+            default => throw InvalidArgumentException::invalidArgument("不支持的缓存驱动类型: {$type}"),
         };
     }
 

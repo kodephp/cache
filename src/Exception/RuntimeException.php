@@ -7,20 +7,12 @@ namespace Kode\Cache\Exception;
 /**
  * 运行时异常
  *
- * 当运行时发生错误时抛出
+ * 当运行时发生错误时抛出。
+ * 快捷工厂继承自 BaseException（operationFailed / connectionFailed / …）：
+ * 这里不再声明 make()——父类 KodeException::make(ErrorCode $code, …) 的签名与
+ * 「make(string $message, …)」不兼容，声明即让类加载时 PHP 直接 fatal（不可捕获），
+ * 于是所有走到本异常的分支都从「可捕获的异常」变成「进程崩」。
  */
 class RuntimeException extends BaseException
 {
-    /**
-     * 创建运行时异常
-     *
-     * @param string $message 错误消息
-     * @param array $context 错误上下文
-     * @param \Throwable|null $previous 原始异常
-     * @return static
-     */
-    public static function make(string $message, array $context = [], ?\Throwable $previous = null): static
-    {
-        return new static(self::CODE_OPERATION_FAILED, $message, $previous, self::TYPE_RUNTIME, $context);
-    }
 }

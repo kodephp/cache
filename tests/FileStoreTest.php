@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kode\Cache\Tests;
 
+use Kode\Cache\Exception\CacheException;
 use Kode\Cache\Store\FileStore;
 use PHPUnit\Framework\TestCase;
 
@@ -129,5 +130,29 @@ class FileStoreTest extends TestCase
         $this->store->set('array_key', $data);
         $result = $this->store->get('array_key');
         $this->assertEquals($data, $result);
+    }
+
+    /**
+     * 建目录失败必须是「可捕获的 CacheException」（v1.5.1）。
+     *
+     * 该分支曾调用 CacheException::make(string)，而父类 KodeException::make() 首参是
+     * ErrorCode 枚举：传字符串得到 TypeError，try/catch 拦不住，一次磁盘写失败就掀翻 worker。
+     */
+    public function testUncreatableDirectoryThrowsCatchableCacheException(): void
+    {
+        // 用「普通文件」当存储根：它的子目录永远建不出来，且与权限无关（CI 里 root 也能触发）。
+        $blocker = tempnam(sys_get_temp_dir(), 'kode_cache_blocker_');
+        $store = new FileStore($blocker . '/sub');
+
+        try {
+            $store->set('k', 'v');
+            $this->fail('目录不可创建时应抛 CacheException');
+        } catch (CacheException $e) {
+            $this->assertStringContainsString($blocker, $e->getMessage());
+            // 失败原因（PHP 的 "Not a directory" 之类）要一并带出来，否则运维只能靠猜。
+            $this->assertMatchesRegularExpression('/（[^）]+）$/u', $e->getMessage());
+        } finally {
+            @unlink($blocker);
+        }
     }
 }

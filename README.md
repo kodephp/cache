@@ -179,6 +179,17 @@ $cache = new CacheManager([
 ]);
 ```
 
+`type` 写 `array` 与 `memory` 等价（v1.5.1 起别名真正生效）：PHP 侧习惯把进程内驱动叫
+`array`（Laravel 的 `CACHE_DRIVER=array`），此前别名表只是死代码，配 `array` 会落到
+「不支持的缓存驱动类型」。
+
+```php
+$cache = new CacheManager([
+    'default' => 'array',
+    'stores' => ['array' => ['type' => 'array']],   // → MemoryStore
+]);
+```
+
 **特点**:
 - 性能最高
 - 仅在当前进程有效
@@ -821,6 +832,22 @@ try {
 
 **依赖说明**: 自 v1.5.0 起 `kode/exception` 为硬依赖，`BaseException` 恒继承 `\Kode\Exception\KodeException`（不再是「装了才用」的可选集成）。
 
+**抛异常只用具名工厂**（v1.5.1）：
+
+```php
+throw InvalidArgumentException::driverNotFound($name);        // 驱动未配置
+throw InvalidArgumentException::invalidArgument("……");        // 参数/类型不支持
+throw CacheException::cacheError("……");                      // 写盘、建目录失败
+```
+
+两条铁律，新增异常类时同样适用（`tests/ExceptionSignatureTest.php` 会扫 `src/Exception/*.php` 逐个盯住）：
+
+1. **子类不得声明 `make(string $message, …)`**。父类是 `KodeException::make(ErrorCode $code, …)`，
+   签名不兼容会让 PHP 在「加载这个类」的那一刻 fatal——不可 try/catch，于是「驱动未配置」这种
+   本该返回 500 的分支变成整进程退出。v1.5.1 删掉了三个子类上自制的 `make()`。
+2. **不要 `new X("消息")`**。构造首参是错误码（`ErrorCode|string $errorCode`），传消息会把消息
+   当成 code、`getMessage()` 恒为「未知错误」，日志里查不到原因。
+
 ---
 
 ## 框架集成
@@ -1032,6 +1059,15 @@ kode/cache/
 ---
 
 ## 更新日志
+
+### v1.5.1 (2026-09-22)
+
+- **fix(exception)**: 三个异常子类（`CacheException` / `InvalidArgumentException` / `RuntimeException`）自制的 `make(string $message, array $context, ?Throwable $previous)` 与父类 `KodeException::make(ErrorCode $code, …)` 签名不兼容——PHP 在**加载类**的那一刻就 `Fatal error: Declaration … must be compatible`，不可 try/catch。后果是「报错分支」升级为「进程崩」：worker 里一次未知驱动、一次建目录失败即整进程退出。现已删除这三处 `make()`，调用点改用具名工厂（`invalidArgument()` / `driverNotFound()` / `cacheError()`），新增 `tests/ExceptionSignatureTest.php` 扫描 `src/Exception/*.php` 逐个反射加载并禁止再声明 `make()`（变异验证：把 `make()` 加回去 → 用例以该 fatal 文本失败）。
+- **fix(cache)**: `CacheManager::$driverAliases`（`array → memory`）此前是死代码，`type => 'array'` 会落到 default 分支抛「不支持的缓存驱动类型」。现已接线，`CACHE_DRIVER=array` 这类 PHP 侧惯用配置可用；未知驱动仍严格报错（别名表不得顺手放宽）。
+- **fix(cache)**: `CacheManager` 三处 `new InvalidArgumentException("中文消息")` 的构造参数错位——父类首参是**错误码**，消息被当成 code 后 `getMessage()` 恒为「未知错误」，运维只看得到四个字。改为具名工厂后消息完整（含驱动名/类型名/类名）。
+- **fix(file)**: `FileStore::set()` 建目录失败时，PHP 的 `mkdir(): …` warning 会直接喷进日志；现捕获该 warning 并并入 `CacheException` 消息（`无法创建缓存目录: /path（Not a directory）`），既留住失败原因又不产生噪音。
+
+- **验证**: 70 项测试 / 147 断言全绿；7 个变异（摘掉别名接线、三处工厂退回 `new X("消息")`、`make()` 加回子类、建目录消息退化）全部被指名单测杀掉。
 
 ### v1.5.0 (2026-09-22)
 

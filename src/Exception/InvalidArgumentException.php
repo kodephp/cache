@@ -7,23 +7,14 @@ namespace Kode\Cache\Exception;
 /**
  * 参数无效异常
  *
- * 当参数无效或驱动未配置时抛出
+ * 当参数无效或驱动未配置时抛出。
+ * 快捷工厂用 BaseException 的 invalidArgument() / driverNotFound()：
+ * 本类不再声明 make()，「make(string $message, …)」与父类
+ * KodeException::make(ErrorCode $code, …) 签名不兼容，声明会让类加载即 fatal，
+ * 报错分支就从「可捕获」变成「进程崩」。
  */
 class InvalidArgumentException extends BaseException
 {
-    /**
-     * 创建参数无效异常
-     *
-     * @param string $message 错误消息
-     * @param array $context 错误上下文
-     * @param \Throwable|null $previous 原始异常
-     * @return static
-     */
-    public static function make(string $message, array $context = [], ?\Throwable $previous = null): static
-    {
-        return new static(self::CODE_INVALID_ARGUMENT, $message, $previous, self::TYPE_BUSINESS, $context);
-    }
-
     /**
      * 创建驱动未找到异常
      *
