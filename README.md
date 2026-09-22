@@ -38,7 +38,7 @@
 - **协程支持**: CoLock 协程锁，支持 Swoole/Fiber/Swow 等协程环境
 - **缓存标签**: 分组管理和批量操作
 - **链式调用**: 简洁的 API 设计
-- **PHP 8.1+**: 利用最新 PHP 特性和性能优化
+- **PHP 8.3+**: 利用最新 PHP 特性和性能优化
 - **自定义扩展**: 支持通过 `extend()` 方法注册自定义驱动
 - **Kode 生态**: 无缝对接 kode/context、kode/limiting 等组件
 
@@ -48,7 +48,8 @@
 
 ### 环境要求
 
-- PHP >= 8.1
+- PHP >= 8.3
+- 必装依赖（由 composer 自动拉取）: `kode/context ^3.2`、`kode/exception ^3.1`、`kode/limiting ^2.3`
 - 可选扩展: ext-redis, ext-memcached, ext-apcu, ext-igbinary
 
 ### 安装命令
@@ -818,7 +819,7 @@ try {
 | `CacheException` | 缓存操作失败，如文件写入失败、Redis 连接失败 |
 | `InvalidArgumentException` | 参数无效或驱动未配置 |
 
-**可选集成**: 如果安装了 `kode/exception`，将使用其作为异常基类。
+**依赖说明**: 自 v1.5.0 起 `kode/exception` 为硬依赖，`BaseException` 恒继承 `\Kode\Exception\KodeException`（不再是「装了才用」的可选集成）。
 
 ---
 
@@ -1031,6 +1032,19 @@ kode/cache/
 ---
 
 ## 更新日志
+
+### v1.5.0 (2026-09-22)
+
+- **chore(deps)**: 依赖约束解绑到当前 Kode 生态主版本——`kode/context ^3.2`、`kode/exception ^3.1`、`kode/limiting ^2.3`、`php >=8.3`。原声明（context `^2.3` / exception `^2.0` / limiting `^1.0`）与这些包的现行主版本互斥，导致已升级 Kode 生态的项目 `composer update kode/cache` 静默停在旧版（`Nothing to modify in lock file`），无法取到 1.4.x 的修复。代码侧 API 无改动，60 项测试在新主版本下全绿。
+
+### v1.4.0 (2026-09-21)
+
+- **fix(CoLock)**: 仅在确认无有效锁时才写入自己的锁位（此前先写后查，互斥失效）；无 store 上下文的本地路径改走引用，`release/isOwned/extend` 对本地锁真正生效（此前只查不删，锁永不释放）。
+- **fix(MemoryStore)**: `set()` 的 `ttl=0` 与 Redis 对齐为「永久」（旧 `-1` 哨兵值导致首次读取即判过期）；`add()` 修复二次前缀拼接（`app:app:key`）。
+- **fix(RedisStore)**: `set()` 统一 ttl 解析（`null`=连接默认、`0`=永久），过期语义与 FileStore 一致；`checkConnection()` 失败不再挂载半死实例（此前一次连接失败会让该 worker 永久无法重连）；`getMultiple` 修复键序错位。
+- **fix(FileStore)**: `set()` 与 `ttl=null/0` 语义对齐。
+- **fix(RedisPoolManager)**: 死连接置换时 `created` 计数先减后加，不再虚增。
+- **test**: 新增 `tests/CacheFixesTest`（5 项回归）。
 
 ### v1.3.6 (2026-08-27)
 
