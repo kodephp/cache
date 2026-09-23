@@ -2,8 +2,10 @@
 
 高性能 PHP 缓存组件，支持文件、内存、Redis、Memcached、APCu、SQLite 等多种驱动，可独立使用、框架集成使用或结合 Kode 其他包使用。支持分布式锁、原子计数器、限流器等高级功能。
 
+
 ## 目录
 
+- [版本自述](#版本自述)
 - [特性](#特性)
 - [安装](#安装)
 - [快速开始](#快速开始)
@@ -28,6 +30,12 @@
 - [更新日志](#更新日志)
 
 ---
+
+## 版本自述
+
+本包版本可由类常量核对：`Kode\Cache\CacheManager::VERSION`，或调用 `CacheManager::version()`（当前 `1.6.0`）。
+
+`composer.json` 的 `version` 字段是 composer 侧的权威值，类常量是它的交叉核对副本——`tests/VersionGuardTest.php` 在两者不一致时直接失败，杜绝「tag 打了、常量忘改」的漂移。
 
 ## 特性
 
