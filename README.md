@@ -47,7 +47,7 @@
 - **协程支持**: CoLock 协程锁，支持 Swoole/Fiber/Swow 等协程环境
 - **缓存标签**: 分组管理和批量操作
 - **链式调用**: 简洁的 API 设计
-- **PHP 8.3+**: 利用最新 PHP 特性和性能优化
+- **PHP 8.4+**: 利用最新 PHP 特性和性能优化
 - **自定义扩展**: 支持通过 `extend()` 方法注册自定义驱动
 - **Kode 生态**: 无缝对接 kode/context、kode/limiting 等组件
 
@@ -57,7 +57,7 @@
 
 ### 环境要求
 
-- PHP >= 8.3
+- PHP >= 8.4
 - 必装依赖（由 composer 自动拉取）: `kode/context ^3.2`、`kode/exception ^3.1`、`kode/limiting ^2.3`
 - 可选扩展: ext-redis, ext-memcached, ext-apcu, ext-igbinary
 
