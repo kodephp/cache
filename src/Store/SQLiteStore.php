@@ -73,6 +73,7 @@ class SQLiteStore extends AbstractStore
      * @param string $key 完整键名
      * @return array|null
      */
+    #[\Override]
     protected function getItem(string $key): ?array
     {
         $stmt = $this->pdo->prepare('SELECT value, expire FROM cache WHERE key = ?');
@@ -97,6 +98,7 @@ class SQLiteStore extends AbstractStore
      * @param int $expire 过期时间戳
      * @return bool
      */
+    #[\Override]
     protected function setItem(string $key, mixed $value, int $expire): bool
     {
         $serialized = serialize($value);
@@ -114,6 +116,7 @@ class SQLiteStore extends AbstractStore
      * @param string $key 完整键名
      * @return bool
      */
+    #[\Override]
     protected function deleteItem(string $key): bool
     {
         $stmt = $this->pdo->prepare('DELETE FROM cache WHERE key = ?');
@@ -125,6 +128,7 @@ class SQLiteStore extends AbstractStore
      *
      * @return bool
      */
+    #[\Override]
     protected function clearAll(): bool
     {
         return $this->pdo->exec('DELETE FROM cache') !== false;

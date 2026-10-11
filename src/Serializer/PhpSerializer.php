@@ -17,6 +17,7 @@ class PhpSerializer implements SerializerInterface
      * @param mixed $value 要序列化的值
      * @return string
      */
+    #[\Override]
     public function serialize(mixed $value): string
     {
         return serialize($value);
@@ -28,6 +29,7 @@ class PhpSerializer implements SerializerInterface
      * @param string $value 要反序列化的字符串
      * @return mixed
      */
+    #[\Override]
     public function unserialize(string $value): mixed
     {
         return unserialize($value);

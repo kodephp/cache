@@ -23,6 +23,7 @@ class CacheException extends BaseException
      * @param \Throwable|null $previous 原始异常
      * @return static
      */
+    #[\Override]
     public static function connectionFailed(string $message, array $context = [], ?\Throwable $previous = null): static
     {
         return new static(self::CODE_CONNECTION_FAILED, $message, $previous, self::TYPE_SYSTEM, $context);
@@ -36,6 +37,7 @@ class CacheException extends BaseException
      * @param \Throwable|null $previous 原始异常
      * @return static
      */
+    #[\Override]
     public static function operationFailed(string $message, array $context = [], ?\Throwable $previous = null): static
     {
         return new static(self::CODE_OPERATION_FAILED, $message, $previous, self::TYPE_RUNTIME, $context);

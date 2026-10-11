@@ -53,6 +53,7 @@ class APCuStore extends AbstractStore
      * @param string $key 完整键名
      * @return array|null
      */
+    #[\Override]
     protected function getItem(string $key): ?array
     {
         $success = false;
@@ -73,6 +74,7 @@ class APCuStore extends AbstractStore
      * @param int $expire 过期时间戳
      * @return bool
      */
+    #[\Override]
     protected function setItem(string $key, mixed $value, int $expire): bool
     {
         $ttl = $expire > 0 ? $expire - time() : 0;
@@ -90,6 +92,7 @@ class APCuStore extends AbstractStore
      * @param string $key 完整键名
      * @return bool
      */
+    #[\Override]
     protected function deleteItem(string $key): bool
     {
         return \apcu_delete($key) !== false;
@@ -100,6 +103,7 @@ class APCuStore extends AbstractStore
      *
      * @return bool
      */
+    #[\Override]
     protected function clearAll(): bool
     {
         return \apcu_clear_cache() !== false;

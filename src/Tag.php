@@ -42,6 +42,7 @@ class Tag implements TagInterface
      * @param int|null $ttl 过期时间
      * @return bool
      */
+    #[\Override]
     public function set(string $key, mixed $value, ?int $ttl = null): bool
     {
         $tagKey = $this->getTagKey();
@@ -63,6 +64,7 @@ class Tag implements TagInterface
      * @param mixed $default 默认值
      * @return mixed
      */
+    #[\Override]
     public function get(string $key, mixed $default = null): mixed
     {
         $cacheKey = $this->getCacheKey($key);
@@ -75,6 +77,7 @@ class Tag implements TagInterface
      * @param string $key 缓存键名
      * @return bool
      */
+    #[\Override]
     public function has(string $key): bool
     {
         $cacheKey = $this->getCacheKey($key);
@@ -87,6 +90,7 @@ class Tag implements TagInterface
      * @param string $key 缓存键名
      * @return bool
      */
+    #[\Override]
     public function delete(string $key): bool
     {
         $cacheKey = $this->getCacheKey($key);
@@ -105,6 +109,7 @@ class Tag implements TagInterface
      *
      * @return bool
      */
+    #[\Override]
     public function clear(): bool
     {
         $items = $this->getItems();
@@ -125,6 +130,7 @@ class Tag implements TagInterface
      * @param mixed $value 缓存值
      * @return bool
      */
+    #[\Override]
     public function append(string $key, mixed $value): bool
     {
         $items = $this->getItems();
@@ -142,6 +148,7 @@ class Tag implements TagInterface
      *
      * @return array
      */
+    #[\Override]
     public function getTagItems(): array
     {
         return array_keys($this->getItems());

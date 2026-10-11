@@ -29,6 +29,7 @@ class IgBinarySerializer implements SerializerInterface
      * @return string
      * @throws \Kode\Cache\Exception\CacheException 扩展未安装时抛出
      */
+    #[\Override]
     public function serialize(mixed $value): string
     {
         if (!self::isAvailable()) {
@@ -47,6 +48,7 @@ class IgBinarySerializer implements SerializerInterface
      * @return mixed
      * @throws \Kode\Cache\Exception\CacheException 扩展未安装时抛出
      */
+    #[\Override]
     public function unserialize(string $value): mixed
     {
         if (!self::isAvailable()) {

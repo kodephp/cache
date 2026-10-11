@@ -49,6 +49,7 @@ class Lock implements LockInterface
      *
      * @return bool
      */
+    #[\Override]
     public function acquire(): bool
     {
         if (method_exists($this->store, 'add')) {
@@ -71,6 +72,7 @@ class Lock implements LockInterface
      *
      * @return bool
      */
+    #[\Override]
     public function release(): bool
     {
         if (!$this->owner) {
@@ -86,6 +88,7 @@ class Lock implements LockInterface
      *
      * @return bool
      */
+    #[\Override]
     public function isOwned(): bool
     {
         if (!$this->owner) {
@@ -103,6 +106,7 @@ class Lock implements LockInterface
      * @param int $seconds 最大等待秒数
      * @return bool
      */
+    #[\Override]
     public function block(int $seconds): bool
     {
         $start = time();
@@ -123,6 +127,7 @@ class Lock implements LockInterface
      *
      * @return string|null
      */
+    #[\Override]
     public function getToken(): ?string
     {
         return $this->token;

@@ -22,6 +22,7 @@ class InvalidArgumentException extends BaseException
      * @param \Throwable|null $previous 原始异常
      * @return static
      */
+    #[\Override]
     public static function driverNotFound(string $driver, ?\Throwable $previous = null): static
     {
         return new static(

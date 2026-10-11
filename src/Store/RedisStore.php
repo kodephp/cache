@@ -80,6 +80,7 @@ class RedisStore implements StoreInterface
      * @param mixed $default 默认值
      * @return mixed
      */
+    #[\Override]
     public function get(string $key, mixed $default = null): mixed
     {
         $this->checkConnection();
@@ -112,6 +113,7 @@ class RedisStore implements StoreInterface
      * @param int|null $ttl 过期时间（秒）
      * @return bool
      */
+    #[\Override]
     public function set(string $key, mixed $value, ?int $ttl = null): bool
     {
         $this->checkConnection();
@@ -149,6 +151,7 @@ class RedisStore implements StoreInterface
      * @param string $key 缓存键名
      * @return bool
      */
+    #[\Override]
     public function delete(string $key): bool
     {
         $this->checkConnection();
@@ -161,6 +164,7 @@ class RedisStore implements StoreInterface
      * @param string $key 缓存键名
      * @return bool
      */
+    #[\Override]
     public function has(string $key): bool
     {
         $this->checkConnection();
@@ -196,6 +200,7 @@ class RedisStore implements StoreInterface
      *
      * @return bool
      */
+    #[\Override]
     public function clear(): bool
     {
         $this->checkConnection();
@@ -266,6 +271,7 @@ class RedisStore implements StoreInterface
      * @param mixed $default 默认值
      * @return iterable
      */
+    #[\Override]
     public function getMultiple(iterable $keys, mixed $default = null): iterable
     {
         $this->checkConnection();
@@ -304,6 +310,7 @@ class RedisStore implements StoreInterface
      * @param int|null $ttl 过期时间
      * @return bool
      */
+    #[\Override]
     public function setMultiple(iterable $values, ?int $ttl = null): bool
     {
         $this->checkConnection();
@@ -323,6 +330,7 @@ class RedisStore implements StoreInterface
      * @param iterable $keys 缓存键名数组
      * @return bool
      */
+    #[\Override]
     public function deleteMultiple(iterable $keys): bool
     {
         $this->checkConnection();
@@ -342,6 +350,7 @@ class RedisStore implements StoreInterface
      * @param mixed $default 默认值
      * @return mixed
      */
+    #[\Override]
     public function pull(string $key, mixed $default = null): mixed
     {
         $value = $this->get($key, $default);
