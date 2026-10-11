@@ -56,7 +56,7 @@ class RedisStore implements StoreInterface
     public function __construct(
         string $host = '127.0.0.1',
         ?int $port = 6379,
-        ?string $password = null,
+        #[\SensitiveParameter] ?string $password = null,
         int $database = 0,
         string $prefix = '',
         int $expire = 0,

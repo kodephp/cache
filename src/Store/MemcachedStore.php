@@ -49,7 +49,7 @@ class MemcachedStore implements StoreInterface
         string $host = '127.0.0.1',
         int $port = 11211,
         ?string $username = null,
-        ?string $password = null,
+        #[\SensitiveParameter] ?string $password = null,
         string $prefix = '',
         int $expire = 0
     ) {
