@@ -23,7 +23,7 @@ use Kode\Cache\Store\SQLiteStore;
 class CacheManager
 {
     /** @var string 版本号（与 composer.json 的 version 保持同步，漏改由 VersionGuardTest 拦下） */
-    public const string VERSION = '2.0.2';
+    public const string VERSION = '2.0.3';
 
     /**
      * 获取本包版本号
