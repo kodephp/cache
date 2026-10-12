@@ -14,6 +14,8 @@ use Kode\Cache\Exception\CacheException;
  */
 class RedisStore implements StoreInterface
 {
+    use UnserializeGuard;
+
     /** @var \Redis|\RedisArray|\RedisCluster|null Redis 连接实例 */
     protected \Redis|\RedisArray|\RedisCluster|null $redis = null;
 
@@ -61,7 +63,8 @@ class RedisStore implements StoreInterface
         string $prefix = '',
         int $expire = 0,
         ?string $persistent = null,
-        float $timeout = 0.0
+        float $timeout = 0.0,
+        bool|array $allowedClasses = true
     ) {
         $this->host = $host;
         $this->port = $port;
@@ -70,6 +73,7 @@ class RedisStore implements StoreInterface
         $this->prefix = $prefix;
         $this->expire = $expire;
         $this->persistent = $persistent;
+        $this->allowedClasses = $allowedClasses;
         $this->timeout = $timeout;
     }
 
@@ -91,7 +95,7 @@ class RedisStore implements StoreInterface
             return $default;
         }
 
-        $data = unserialize($value);
+        $data = $this->unserializeGuarded($value);
 
         if (!is_array($data)) {
             return $value;
@@ -181,7 +185,7 @@ class RedisStore implements StoreInterface
             return false;
         }
 
-        $data = unserialize($value);
+        $data = $this->unserializeGuarded($value);
 
         if (is_array($data) && isset($data['expire']) && $data['expire'] > 0 && $data['expire'] < time()) {
             $this->delete($key);
@@ -291,7 +295,7 @@ class RedisStore implements StoreInterface
                 continue;
             }
 
-            $data = unserialize($value);
+            $data = $this->unserializeGuarded($value);
 
             if (is_array($data) && isset($data['expire']) && $data['expire'] > 0 && $data['expire'] < time()) {
                 $result[$key] = $default;

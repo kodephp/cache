@@ -14,6 +14,8 @@ use Kode\Cache\Contract\StoreInterface;
  */
 abstract class AbstractStore implements StoreInterface
 {
+    use UnserializeGuard;
+
     /** @var string 缓存键名前缀 */
     protected string $prefix;
 
@@ -25,11 +27,13 @@ abstract class AbstractStore implements StoreInterface
      *
      * @param string $prefix 缓存键名前缀
      * @param int $expire 默认过期时间
+     * @param bool|list<string> $allowedClasses unserialize 类白名单（见 UnserializeGuard）
      */
-    public function __construct(string $prefix = '', int $expire = 0)
+    public function __construct(string $prefix = '', int $expire = 0, bool|array $allowedClasses = true)
     {
         $this->prefix = $prefix;
         $this->expire = $expire;
+        $this->allowedClasses = $allowedClasses;
     }
 
     /**

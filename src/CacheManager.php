@@ -23,7 +23,7 @@ use Kode\Cache\Store\SQLiteStore;
 class CacheManager
 {
     /** @var string 版本号（与 composer.json 的 version 保持同步，漏改由 VersionGuardTest 拦下） */
-    public const string VERSION = '2.0.4';
+    public const string VERSION = '2.0.5';
 
     /**
      * 获取本包版本号
@@ -164,6 +164,7 @@ class CacheManager
                 'expire' => $this->config['expire'] ?? 0,
                 'subDir' => $this->config['subDir'] ?? true,
                 'hashType' => $this->config['hashType'] ?? 'md5',
+                'allowed_classes' => $this->config['allowed_classes'] ?? true,
             ],
             'redis', 'RedisStore' => [
                 'type' => 'redis',
@@ -175,6 +176,7 @@ class CacheManager
                 'expire' => $this->config['expire'] ?? 0,
                 'persistent' => $this->config['persistent'] ?? null,
                 'timeout' => $this->config['timeout'] ?? 0.0,
+                'allowed_classes' => $this->config['allowed_classes'] ?? true,
             ],
             'memory', 'MemoryStore' => [
                 'type' => 'memory',
@@ -200,6 +202,7 @@ class CacheManager
                 'path' => $this->config['sqlite_path'] ?? ':memory:',
                 'prefix' => $this->config['prefix'] ?? '',
                 'expire' => $this->config['expire'] ?? 0,
+                'allowed_classes' => $this->config['allowed_classes'] ?? true,
             ],
             default => null,
         };
@@ -230,7 +233,8 @@ class CacheManager
                 $config['prefix'] ?? '',
                 (int) ($config['expire'] ?? 0),
                 (bool) ($config['subDir'] ?? true),
-                $config['hashType'] ?? 'md5'
+                $config['hashType'] ?? 'md5',
+                $config['allowed_classes'] ?? true
             ),
             'redis' => new RedisStore(
                 $config['host'] ?? '127.0.0.1',
@@ -240,7 +244,8 @@ class CacheManager
                 $config['prefix'] ?? '',
                 (int) ($config['expire'] ?? 0),
                 $config['persistent'] ?? null,
-                (float) ($config['timeout'] ?? 0.0)
+                (float) ($config['timeout'] ?? 0.0),
+                $config['allowed_classes'] ?? true
             ),
             'memory' => new MemoryStore(
                 $config['prefix'] ?? '',
@@ -261,7 +266,8 @@ class CacheManager
             'sqlite' => new SQLiteStore(
                 $config['path'] ?? ':memory:',
                 $config['prefix'] ?? '',
-                (int) ($config['expire'] ?? 0)
+                (int) ($config['expire'] ?? 0),
+                $config['allowed_classes'] ?? true
             ),
             default => throw InvalidArgumentException::invalidArgument("不支持的缓存驱动类型: {$type}"),
         };

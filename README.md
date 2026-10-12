@@ -168,6 +168,7 @@ $cache = new CacheManager([
     'expire' => 3600,                // 默认过期时间 (秒)
     'subDir' => true,                 // 是否使用子目录 (减少单目录文件数)
     'hashType' => 'md5',             // 哈希算法: md5/sha1/xxh3
+    'allowed_classes' => true,        // unserialize 类白名单（见「反序列化类白名单」）
 ]);
 ```
 
@@ -219,6 +220,7 @@ $cache = new CacheManager([
     'expire' => 3600,                 // 默认过期时间
     'timeout' => 0.0,                // 连接超时
     'persistent' => null,             // 持久化连接 ID
+    'allowed_classes' => true,        // unserialize 类白名单（见「反序列化类白名单」）
 ]);
 ```
 
@@ -279,6 +281,7 @@ $cache = new CacheManager([
     'sqlite_path' => '/tmp/cache.sqlite',  // 数据库文件路径
     'prefix' => 'kode:',
     'expire' => 3600,
+    'allowed_classes' => true,             // unserialize 类白名单（见「反序列化类白名单」）
 ]);
 ```
 
@@ -565,6 +568,36 @@ $jsonSerializer = new JsonSerializer(
 | PHP | 无依赖 | 性能一般 |
 | JSON | 可跨语言 | 不支持资源类型 |
 | igbinary | 最高效 | 需要扩展 |
+
+### 反序列化类白名单（对象注入防线）
+
+PHP 原生 `unserialize()` 若不限制可实例化类，缓存后端一旦被投毒
+（共享 Redis 未鉴权、缓存文件被写入），攻击者可用 gadget chain
+（`__wakeup` / `__destruct`）在进程内执行任意逻辑。v2.0.5 起所有走
+PHP 原生序列化的读取路径都支持 `allowed_classes`：
+
+```php
+// 1) 序列化器级（SerializerFactory 第二参 / PhpSerializer 构造参）
+$serializer = SerializerFactory::create('php', false);           // 禁止一切类
+$serializer = SerializerFactory::create('php', ['App\Model\User']); // 白名单
+$serializer = new PhpSerializer();                               // true（默认，BC）
+
+// 2) 存储级（FileStore / RedisStore / SQLiteStore 构造末参）
+$store = new FileStore('/tmp/cache', '', 0, true, 'md5', false);
+
+// 3) 配置级（CacheManager 顶层或 stores.<name> 配置键）
+$cache = new CacheManager([
+    'default' => 'file',
+    'path' => '/tmp/kode_cache',
+    'allowed_classes' => false,   // 缓存值仅为标量/数组时推荐
+]);
+```
+
+语义与 `unserialize()` 完全一致：`true` 不限制（默认，兼容既有缓存中的
+对象）、`false` 一切类降级为 `__PHP_Incomplete_Class`、数组为类名白名单。
+缓存值含对象又想收窄时用白名单；**不建议**在共享/不可信后端上保持 `true`。
+坏负载（半截写入、磁盘满、序列化版本漂移）读取时静默返回默认值，不升级为异常。
+`igbinary` 扩展的 `igbinary_unserialize` 不支持类限制，需要同等防护时改用 `php` 序列化器。
 
 ---
 
@@ -1068,6 +1101,17 @@ kode/cache/
 ---
 
 ## 更新日志
+
+### v2.0.5 (2026-10-12)
+
+- **security(cache)**: 所有 PHP 原生 `unserialize()` 读取路径接入 `allowed_classes`
+  白名单（对象注入防线）：新增 `UnserializeGuard` trait，`FileStore`（2 处）、
+  `RedisStore`（3 处）、`SQLiteStore`（1 处）统一走 `unserializeGuarded()`；
+  `PhpSerializer` 构造参、`SerializerFactory::create()` 第二参、
+  `CacheManager` 配置键 `allowed_classes`（顶层与 `stores.<name>` 均可）三层可配。
+  默认 `true` 保持 BC；坏负载读取静默返回默认值（`@` + 结构校验兜底），不升级为异常。
+  `igbinary_unserialize` 不支持类限制，已在类注释与 README 标注替代方案。
+- **test**: 新增 `tests/UnserializeHardeningTest.php`（8 项：白名单/拒绝/BC 回归/坏负载兜底/配置接线）。
 
 ### v1.5.1 (2026-09-22)
 

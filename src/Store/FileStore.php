@@ -14,6 +14,8 @@ use Kode\Cache\Exception\CacheException;
  */
 class FileStore implements StoreInterface
 {
+    use UnserializeGuard;
+
     /** @var string 缓存存储目录路径 */
     protected string $path;
 
@@ -43,13 +45,15 @@ class FileStore implements StoreInterface
         string $prefix = '',
         int $expire = 0,
         bool $subDir = true,
-        string $hashType = 'md5'
+        string $hashType = 'md5',
+        bool|array $allowedClasses = true
     ) {
         $this->path = rtrim($path, '/\\');
         $this->prefix = $prefix;
         $this->expire = $expire;
         $this->subDir = $subDir;
         $this->hashType = $hashType;
+        $this->allowedClasses = $allowedClasses;
     }
 
     /**
@@ -74,7 +78,7 @@ class FileStore implements StoreInterface
             return $default;
         }
 
-        $data = unserialize($content);
+        $data = $this->unserializeGuarded($content);
 
         if (!is_array($data)) {
             return $default;
@@ -250,7 +254,7 @@ class FileStore implements StoreInterface
             return false;
         }
 
-        $data = unserialize($content);
+        $data = $this->unserializeGuarded($content);
 
         if (!is_array($data)) {
             return false;

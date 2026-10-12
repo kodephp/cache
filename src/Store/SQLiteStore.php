@@ -27,11 +27,15 @@ class SQLiteStore extends AbstractStore
      * @param string $prefix 缓存键名前缀
      * @param int $expire 默认过期时间
      */
-    public function __construct(string $path = ':memory:', string $prefix = '', int $expire = 0)
-    {
+    public function __construct(
+        string $path = ':memory:',
+        string $prefix = '',
+        int $expire = 0,
+        bool|array $allowedClasses = true
+    ) {
         $this->path = $path;
         $this->initDatabase();
-        parent::__construct($prefix, $expire);
+        parent::__construct($prefix, $expire, $allowedClasses);
     }
 
     /**
@@ -85,7 +89,7 @@ class SQLiteStore extends AbstractStore
         }
 
         return [
-            'value' => unserialize($row['value']),
+            'value' => $this->unserializeGuarded($row['value']),
             'expire' => (int) $row['expire'],
         ];
     }
