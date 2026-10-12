@@ -577,9 +577,10 @@ PHP 原生 `unserialize()` 若不限制可实例化类，缓存后端一旦被�
 PHP 原生序列化的读取路径都支持 `allowed_classes`：
 
 ```php
-// 1) 序列化器级（SerializerFactory 第二参 / PhpSerializer 构造参）
+// 1) 序列化器级（SerializerFactory 第二参 / PhpSerializer、IgBinarySerializer 构造参）
 $serializer = SerializerFactory::create('php', false);           // 禁止一切类
 $serializer = SerializerFactory::create('php', ['App\Model\User']); // 白名单
+$serializer = SerializerFactory::create('igbinary', false);      // igbinary 同语义
 $serializer = new PhpSerializer();                               // true（默认，BC）
 
 // 2) 存储级（FileStore / RedisStore / SQLiteStore 构造末参）
@@ -597,7 +598,10 @@ $cache = new CacheManager([
 对象）、`false` 一切类降级为 `__PHP_Incomplete_Class`、数组为类名白名单。
 缓存值含对象又想收窄时用白名单；**不建议**在共享/不可信后端上保持 `true`。
 坏负载（半截写入、磁盘满、序列化版本漂移）读取时静默返回默认值，不升级为异常。
-`igbinary` 扩展的 `igbinary_unserialize` 不支持类限制，需要同等防护时改用 `php` 序列化器。
+`igbinary` 序列化器自 v2.0.6 起支持同一套类限制（`igbinary >= 3.2.6` 的
+`allowed_classes` 选项，语义与原生 `unserialize()` 完全一致）；更旧的扩展
+无法执行类限制，此时若启用 `false`/白名单会直接抛 `CacheException`
+（拒绝降级为不设防），升级扩展或改用 `php` 序列化器即可。
 
 ---
 
@@ -1101,6 +1105,17 @@ kode/cache/
 ---
 
 ## 更新日志
+
+### v2.0.6 (2026-10-12)
+
+- **security(cache)**: `IgBinarySerializer` 接入 `allowed_classes` 类限制，补齐
+  第 11 轮对象注入防线的最后一块：`igbinary >= 3.2.6` 时透传与原生
+  `unserialize()` 同名选项（默认 `true` 保持 BC）；更旧的扩展在启用
+  `false`/白名单时直接抛 `CacheException`，不再静默降级为不设防。
+  `SerializerFactory::create('igbinary', …)` 第二参接通（此前对 igbinary 分支
+  被忽略）；`PhpSerializer` 中「igbinary 不支持类限制」的过时注释同步更正。
+- **test**: `UnserializeHardeningTest` 新增 4 例（igbinary 默认对象回环 /
+  `false` 拒绝 / 白名单 / 工厂接线；扩展缺失或旧版时按环境诚实 skip）。
 
 ### v2.0.5 (2026-10-12)
 

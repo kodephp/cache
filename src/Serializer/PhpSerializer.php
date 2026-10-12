@@ -14,8 +14,8 @@ namespace Kode\Cache\Serializer;
  * - false：禁止一切类实例化（缓存值仅标量/数组时推荐，最安全）
  * - ['Foo', 'Bar']：类名白名单
  *
- * 注意：igbinary 扩展的 igbinary_unserialize 不支持类限制，
- * 需要同等防护时请改用 php 序列化器或保持缓存后端可信。
+     * 注意：IgBinarySerializer 自 v2.0.6 起支持同样的类限制
+     * （igbinary >= 3.2.6 的 allowed_classes 选项），语义与此一致。
  */
 class PhpSerializer implements SerializerInterface
 {

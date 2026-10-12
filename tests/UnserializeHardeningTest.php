@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kode\Cache\Tests;
 
 use Kode\Cache\CacheManager;
+use Kode\Cache\Serializer\IgBinarySerializer;
 use Kode\Cache\Serializer\PhpSerializer;
 use Kode\Cache\Serializer\SerializerFactory;
 use Kode\Cache\Store\FileStore;
@@ -129,5 +130,82 @@ final class UnserializeHardeningTest extends TestCase
 
         // 坏负载不得升级为异常/告警，结构校验兜底返回默认值
         self::assertNull($store->get('bad'));
+    }
+
+    public function testIgbinarySerializerDefaultStillRoundTripsObjects(): void
+    {
+        if (!IgBinarySerializer::isAvailable()) {
+            self::markTestSkipped('igbinary 扩展未安装');
+        }
+
+        $serializer = new IgBinarySerializer();
+        $value = ['obj' => (object) ['a' => 1]];
+
+        $restored = $serializer->unserialize($serializer->serialize($value));
+
+        self::assertInstanceOf(\stdClass::class, $restored['obj']);
+        self::assertSame(1, $restored['obj']->a);
+    }
+
+    public function testIgbinarySerializerFalseBlocksClasses(): void
+    {
+        if (!IgBinarySerializer::isAvailable()) {
+            self::markTestSkipped('igbinary 扩展未安装');
+        }
+
+        $serializer = new IgBinarySerializer(false);
+
+        if (self::igbinaryOptionsSupported()) {
+            $restored = $serializer->unserialize($serializer->serialize((object) ['x' => 1]));
+            self::assertSame('__PHP_Incomplete_Class', \get_class($restored));
+        } else {
+            // 旧扩展无法执行类限制：必须拒绝，而不是静默不设防
+            $this->expectException(\Kode\Cache\Exception\CacheException::class);
+            $serializer->unserialize($serializer->serialize((object) ['x' => 1]));
+        }
+    }
+
+    public function testIgbinarySerializerWhitelistAllowsOnlyListedClasses(): void
+    {
+        if (!IgBinarySerializer::isAvailable() || !self::igbinaryOptionsSupported()) {
+            self::markTestSkipped('igbinary 扩展未安装或版本过旧（无 allowed_classes 选项）');
+        }
+
+        $serializer = new IgBinarySerializer([\DateTime::class]);
+
+        $date = $serializer->unserialize($serializer->serialize(new \DateTime('2026-01-01')));
+        self::assertInstanceOf(\DateTime::class, $date);
+
+        $other = $serializer->unserialize($serializer->serialize((object) ['x' => 1]));
+        self::assertSame('__PHP_Incomplete_Class', \get_class($other));
+    }
+
+    public function testFactoryPassesAllowedClassesToIgbinary(): void
+    {
+        $serializer = SerializerFactory::create('igbinary', false);
+        self::assertInstanceOf(IgBinarySerializer::class, $serializer);
+
+        if (!IgBinarySerializer::isAvailable()) {
+            self::markTestSkipped('igbinary 扩展未安装');
+        }
+
+        if (!self::igbinaryOptionsSupported()) {
+            $this->expectException(\Kode\Cache\Exception\CacheException::class);
+            $serializer->unserialize($serializer->serialize(['a' => 1]));
+            return;
+        }
+
+        $restored = $serializer->unserialize($serializer->serialize((object) ['x' => 1]));
+        self::assertSame('__PHP_Incomplete_Class', \get_class($restored));
+    }
+
+    /** igbinary >= 3.2.6 才带 allowed_classes 第二参（与实现同口径探测） */
+    private static function igbinaryOptionsSupported(): bool
+    {
+        try {
+            return (new \ReflectionFunction('igbinary_unserialize'))->getNumberOfParameters() >= 2;
+        } catch (\ReflectionException) {
+            return false;
+        }
     }
 }

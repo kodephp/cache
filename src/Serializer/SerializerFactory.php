@@ -15,7 +15,7 @@ class SerializerFactory
      * 创建序列化器实例
      *
      * @param string $type 序列化器类型: php/json/igbinary
-     * @param bool|list<string> $allowedClasses 仅 php 类型生效：unserialize 类白名单
+     * @param bool|list<string> $allowedClasses php/igbinary 类型生效：unserialize 类白名单
      * @return SerializerInterface
      */
     public static function create(string $type = 'php', bool|array $allowedClasses = true): SerializerInterface
@@ -23,7 +23,7 @@ class SerializerFactory
         return match ($type) {
             'php' => new PhpSerializer($allowedClasses),
             'json' => new JsonSerializer(),
-            'igbinary' => new IgBinarySerializer(),
+            'igbinary' => new IgBinarySerializer($allowedClasses),
             default => new PhpSerializer($allowedClasses),
         };
     }
