@@ -17,8 +17,13 @@ class CacheItem
     /** @var mixed 缓存值 */
     protected mixed $value;
 
-    /** @var int|null 过期时间（秒） */
-    protected ?int $ttl = null;
+    /** @var int|null 过期时间（秒），写入时联动刷新 $expireAt */
+    protected ?int $ttl = null {
+        set(?int $ttl) {
+            $this->ttl = $ttl;
+            $this->expireAt = ($ttl !== null && $ttl > 0) ? time() + $ttl : null;
+        }
+    }
 
     /** @var bool 是否命中 */
     protected bool $isHit = false;
@@ -40,10 +45,6 @@ class CacheItem
         $this->value = $value;
         $this->ttl = $ttl;
         $this->isHit = $isHit;
-
-        if ($ttl !== null && $ttl > 0) {
-            $this->expireAt = time() + $ttl;
-        }
     }
 
     /**
@@ -119,12 +120,6 @@ class CacheItem
     public function setTtl(?int $ttl): self
     {
         $this->ttl = $ttl;
-
-        if ($ttl !== null && $ttl > 0) {
-            $this->expireAt = time() + $ttl;
-        } else {
-            $this->expireAt = null;
-        }
 
         return $this;
     }
