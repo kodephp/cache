@@ -72,9 +72,17 @@ class FileStore implements StoreInterface
             return $default;
         }
 
-        $content = file_get_contents($file);
+        // 读锁与写侧 LOCK_EX 配对，避免并发写入时读到半写内容。
+        $fh = @fopen($file, 'rb');
+        if ($fh === false) {
+            return $default;
+        }
+        flock($fh, LOCK_SH);
+        $content = stream_get_contents($fh);
+        flock($fh, LOCK_UN);
+        fclose($fh);
 
-        if ($content === false) {
+        if ($content === false || $content === '') {
             return $default;
         }
 
@@ -248,9 +256,16 @@ class FileStore implements StoreInterface
             return false;
         }
 
-        $content = file_get_contents($file);
+        $fh = @fopen($file, 'rb');
+        if ($fh === false) {
+            return false;
+        }
+        flock($fh, LOCK_SH);
+        $content = stream_get_contents($fh);
+        flock($fh, LOCK_UN);
+        fclose($fh);
 
-        if ($content === false) {
+        if ($content === false || $content === '') {
             return false;
         }
 
