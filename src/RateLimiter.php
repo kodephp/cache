@@ -53,6 +53,12 @@ class RateLimiter
      */
     public function __construct(RedisStore $store, string $key, int $maxAttempts, int $decaySeconds = 60)
     {
+        if ($maxAttempts < 1) {
+            throw new \InvalidArgumentException('maxAttempts 必须 >= 1');
+        }
+        if ($decaySeconds < 1) {
+            throw new \InvalidArgumentException('decaySeconds 必须 >= 1');
+        }
         $this->maxAttempts = $maxAttempts;
         $this->decaySeconds = $decaySeconds;
         $this->prefix = $key;
