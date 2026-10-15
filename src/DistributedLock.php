@@ -101,7 +101,8 @@ else
 end
 LUA;
 
-        $this->store->getRedis()->eval($script, 1, $key, $this->token);
+        // phpredis 参数序：eval(script, args, num_keys)
+        $this->store->getRedis()->eval($script, [$key, $this->token], 1);
         $this->owner = false;
 
         return true;
@@ -208,7 +209,7 @@ else
 end
 LUA;
 
-        $result = $this->store->getRedis()->eval($script, 1, $key, $this->token, $seconds);
+        $result = $this->store->getRedis()->eval($script, [$key, $this->token, $seconds], 1);
 
         return (bool) $result;
     }

@@ -75,7 +75,7 @@ class IgBinarySerializer implements SerializerInterface
 
         if (self::optionsSupported()) {
             /** @var mixed $data */
-            $data = igbinary_unserialize($value, ['allowed_classes' => $this->allowedClasses]);
+            $data = igbinary_unserialize($value, ['allowed_classes' => $this->allowedClasses]); // @phpstan-ignore arguments.count (igbinary 3.2.6+ 支持第二参 options，phpstorm-stubs 未收录)
 
             return $data;
         }

@@ -6,6 +6,7 @@ namespace Kode\Cache;
 
 use Kode\Cache\Contract\StoreInterface;
 use Kode\Cache\Exception\InvalidArgumentException;
+use Kode\Cache\Store\RedisStore;
 
 /**
  * 缓存门面类
@@ -230,11 +231,13 @@ class Facade
      */
     public static function distributedLock(string $name, int $seconds = 0): DistributedLock
     {
-        return new DistributedLock(
-            self::getInstance()->store('redis'),
-            $name,
-            $seconds
-        );
+        $store = self::getInstance()->store('redis');
+
+        if (!$store instanceof RedisStore) {
+            throw new InvalidArgumentException('分布式锁需要 RedisStore，请检查 redis 存储配置');
+        }
+
+        return new DistributedLock($store, $name, $seconds);
     }
 
     /**
